@@ -8,7 +8,7 @@ const util = require('util');
 const unlinkAsync = util.promisify(fs.unlink);
 
 // Get products by category
-console.log('Products controller loaded');
+
 exports.getProductsByCategory = async (req, res) => {
   try {
     const { category_id } = req.query;
