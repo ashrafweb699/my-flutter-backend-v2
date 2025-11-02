@@ -45,7 +45,12 @@ exports.getProductsByCategory = async (req, res) => {
 // Get all products with optional category filter
 exports.getAllProducts = async (req, res) => {
   try {
-    const { category_id, limit = 20, page = 1 } = req.query;
+    const { category_id } = req.query;
+    // Coerce pagination params to integers with safe defaults
+    let limit = parseInt(req.query.limit, 10);
+    let page = parseInt(req.query.page, 10);
+    if (!Number.isInteger(limit) || limit <= 0) limit = 20;
+    if (!Number.isInteger(page) || page <= 0) page = 1;
     const offset = (page - 1) * limit;
     
     let query, params = [];
@@ -60,15 +65,27 @@ exports.getAllProducts = async (req, res) => {
       LEFT JOIN products_categories pc ON p.category_id = pc.id
     `;
     
-    // Add category filter if provided
-    if (category_id) {
+    // Validate category filter if provided
+    let catId = null;
+    if (typeof category_id !== 'undefined' && category_id !== null && category_id !== '') {
+      catId = parseInt(category_id, 10);
+      if (!Number.isInteger(catId)) {
+        return res.status(400).json({ error: 'Invalid category_id' });
+      }
+    }
+
+    // Add category filter if provided and valid
+    if (catId !== null) {
       query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [category_id, parseInt(limit), offset];
+      params = [catId, limit, offset];
     } else {
       query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [parseInt(limit), offset];
+      params = [limit, offset];
     }
-    
+
+    // Debug log for SQL params (will appear in server logs)
+    console.log('getAllProducts - SQL params:', { query: query.replace(/\s+/g, ' ').trim(), params });
+
     const [products] = await db.execute(query, params);
     
     // Fetch all images for each product efficiently
