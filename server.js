@@ -344,10 +344,9 @@ server.listen(PORT, '0.0.0.0', async () => {
     
     console.log('All database tables created/verified successfully');
     console.log('Server is ready to accept requests');
+    console.log('test server side code update or not update');
     
   } catch (error) {
     console.error('Error setting up database tables:', error);
   }
-}); 
-
-console.log('test server side code update or not update');
+});
