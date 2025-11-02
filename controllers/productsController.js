@@ -78,11 +78,11 @@ exports.getAllProducts = async (req, res) => {
     
     // Add category filter if provided
     if (category_id) {
-      query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [category_id, limit, offset];
+      query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      params = [category_id];
     } else {
-      query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [limit, offset];
+      query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      params = [];
     }
     
     console.log('Executing query with params:', {
