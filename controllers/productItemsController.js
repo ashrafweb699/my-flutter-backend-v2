@@ -113,6 +113,119 @@ exports.getOne = async (req, res) => {
   }
 };
 
+// Update a product
+exports.update = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    
+    const { id } = req.params;
+    const { name, description, price, category_id, stock } = req.body;
+    
+    // Validate required fields
+    if (!name || !price || !category_id) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['name', 'price', 'category_id']
+      });
+    }
+
+    // Check if product exists
+    const [productCheck] = await connection.execute(
+      'SELECT id FROM products WHERE id = ?',
+      [id]
+    );
+    
+    if (productCheck.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    // Validate category exists
+    const [categoryCheck] = await connection.execute(
+      'SELECT id FROM products_categories WHERE id = ?',
+      [category_id]
+    );
+    
+    if (categoryCheck.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Invalid category ID' });
+    }
+    
+    // Update product
+    await connection.execute(
+      'UPDATE products SET name = ?, description = ?, price = ?, category_id = ?, stock = ?, updated_at = NOW() WHERE id = ?',
+      [name, description || '', price, category_id, stock || 0, id]
+    );
+    
+    await connection.commit();
+    
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      id: parseInt(id)
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error updating product:', error);
+    res.status(500).json({ error: 'Failed to update product' });
+  } finally {
+    connection.release();
+  }
+};
+
+// Delete a product
+exports.remove = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    
+    const { id } = req.params;
+    
+    // Check if product exists
+    const [productCheck] = await connection.execute(
+      'SELECT id FROM products WHERE id = ?',
+      [id]
+    );
+    
+    if (productCheck.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    // Get product images to delete files
+    const [images] = await connection.execute(
+      'SELECT image_url FROM product_images WHERE product_id = ?',
+      [id]
+    );
+    
+    // Delete product images from filesystem
+    for (const image of images) {
+      const imagePath = path.join(__dirname, '..', image.image_url);
+      if (fs.existsSync(imagePath)) {
+        await unlinkAsync(imagePath);
+      }
+    }
+    
+    // Delete product (will cascade to images due to foreign key)
+    await connection.execute('DELETE FROM products WHERE id = ?', [id]);
+    
+    await connection.commit();
+    
+    res.json({
+      success: true,
+      message: 'Product deleted successfully',
+      id: parseInt(id)
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error deleting product:', error);
+    res.status(500).json({ error: 'Failed to delete product' });
+  } finally {
+    connection.release();
+  }
+};
+
 // Get products by category
 exports.getProductsByCategory = async (req, res) => {
   try {
