@@ -45,10 +45,24 @@ exports.getProductsByCategory = async (req, res) => {
 // Get all products with optional category filter
 exports.getAllProducts = async (req, res) => {
   try {
-    const { category_id } = req.query;
-    const limit = parseInt(req.query.limit) || 20;
-    const page = parseInt(req.query.page) || 1;
-    const offset = (page - 1) * limit;
+    // Parse and validate query parameters
+    let category_id = req.query.category_id ? Number(req.query.category_id) : null;
+    let limit = Math.max(1, Number(req.query.limit) || 20);
+    let page = Math.max(1, Number(req.query.page) || 1);
+    let offset = (page - 1) * limit;
+
+    // Validate numeric values
+    if (category_id && isNaN(category_id)) {
+      return res.status(400).json({ error: 'Invalid category_id' });
+    }
+    if (isNaN(limit) || isNaN(page)) {
+      return res.status(400).json({ error: 'Invalid pagination parameters' });
+    }
+
+    // Ensure parameters are integers
+    limit = Math.floor(limit);
+    offset = Math.floor(offset);
+    if (category_id) category_id = Math.floor(category_id);
     
     let query, params = [];
     
@@ -65,11 +79,17 @@ exports.getAllProducts = async (req, res) => {
     // Add category filter if provided
     if (category_id) {
       query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [parseInt(category_id), parseInt(limit), parseInt(offset)];
+      params = [category_id, limit, offset];
     } else {
       query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [parseInt(limit), parseInt(offset)];
+      params = [limit, offset];
     }
+    
+    console.log('Executing query with params:', {
+      query,
+      params,
+      paramTypes: params.map(p => typeof p)
+    });
     
     const [products] = await db.execute(query, params);
     
