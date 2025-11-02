@@ -17,6 +17,7 @@ const createProductsTables = require('./db/migrations/create_products_tables');
 const createServiceItemsOrdersTables = require('./db/migrations/create_service_items_orders_tables');
 const createUserNotificationsTable = require('./db/migrations/create_user_notifications_table');
 const createBusManagerTables = require('./db/migrations/create_bus_manager_tables');
+const createShopkeeperTables = require('./db/migrations/create_shopkeeper_tables');
 
 // Load environment variables
 dotenv.config();
