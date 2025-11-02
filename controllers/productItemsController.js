@@ -36,6 +36,83 @@ exports.create = async (req, res) => {
   }
 };
 
+// List all products with pagination and optional filtering
+exports.list = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const offset = (page - 1) * limit;
+    const category_id = req.query.category_id ? parseInt(req.query.category_id, 10) : null;
+
+    let query = `
+      SELECT p.*, c.name as category_name 
+      FROM products p
+      LEFT JOIN products_categories c ON p.category_id = c.id
+    `;
+    
+    const params = [];
+    if (category_id) {
+      query += ' WHERE p.category_id = ?';
+      params.push(category_id);
+    }
+    
+    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    console.log('List products - SQL params:', { query: query.replace(/\s+/g, ' ').trim(), params });
+    
+    const [products] = await db.execute(query, params);
+    const [countResult] = await db.execute('SELECT COUNT(*) as total FROM products' + (category_id ? ' WHERE category_id = ?' : ''), 
+      category_id ? [category_id] : []);
+
+    res.json({
+      products,
+      pagination: {
+        total: countResult[0].total,
+        page,
+        limit,
+        pages: Math.ceil(countResult[0].total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error listing products:', error);
+    res.status(500).json({ error: 'Failed to list products' });
+  }
+};
+
+// Get one product by ID
+exports.getOne = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+
+    const [products] = await db.execute(`
+      SELECT p.*, c.name as category_name 
+      FROM products p
+      LEFT JOIN products_categories c ON p.category_id = c.id
+      WHERE p.id = ?
+    `, [parseInt(id, 10)]);
+
+    if (products.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Get product images if any
+    const [images] = await db.execute('SELECT * FROM product_images WHERE product_id = ?', [id]);
+    const product = {
+      ...products[0],
+      images: images || []
+    };
+
+    res.json(product);
+  } catch (error) {
+    console.error('Error getting product:', error);
+    res.status(500).json({ error: 'Failed to get product' });
+  }
+};
+
 // Get products by category
 exports.getProductsByCategory = async (req, res) => {
   try {
