@@ -296,6 +296,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Server accessible at:`);
   console.log(`- Local: http://localhost:${PORT}`);
+  console.log('test server side code update or not update');
   console.log('IMPORTANT: If testing on real devices, make sure:');
   console.log('1. Devices are on the same WiFi network');
   console.log(`2. Windows Firewall allows incoming connections on port ${PORT}`);
