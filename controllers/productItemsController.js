@@ -7,6 +7,35 @@ const { v4: uuidv4 } = require('uuid');
 const util = require('util');
 const unlinkAsync = util.promisify(fs.unlink);
 
+// Create a new product
+exports.create = async (req, res) => {
+  try {
+    const { name, description, price, category_id, stock } = req.body;
+    
+    // Basic validation
+    if (!name || !price || !category_id) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['name', 'price', 'category_id']
+      });
+    }
+
+    const [result] = await db.execute(
+      'INSERT INTO products (name, description, price, category_id, stock) VALUES (?, ?, ?, ?, ?)',
+      [name, description || '', price, category_id, stock || 0]
+    );
+
+    res.status(201).json({
+      success: true,
+      id: result.insertId,
+      message: 'Product created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating product:', error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+};
+
 // Get products by category
 exports.getProductsByCategory = async (req, res) => {
   try {
