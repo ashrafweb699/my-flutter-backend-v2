@@ -660,3 +660,4 @@ exports.deleteRating = async (req, res) => {
     res.status(500).json({ error: 'Failed to delete rating' });
   }
 };
+console.log('Products controller loaded');
