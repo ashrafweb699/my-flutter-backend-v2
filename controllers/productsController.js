@@ -45,7 +45,9 @@ exports.getProductsByCategory = async (req, res) => {
 // Get all products with optional category filter
 exports.getAllProducts = async (req, res) => {
   try {
-    const { category_id, limit = 20, page = 1 } = req.query;
+    const { category_id } = req.query;
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * limit;
     
     let query, params = [];
@@ -63,10 +65,10 @@ exports.getAllProducts = async (req, res) => {
     // Add category filter if provided
     if (category_id) {
       query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [category_id, parseInt(limit), offset];
+      params = [parseInt(category_id), limit, offset];
     } else {
       query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [parseInt(limit), offset];
+      params = [limit, offset];
     }
     
     const [products] = await db.execute(query, params);
