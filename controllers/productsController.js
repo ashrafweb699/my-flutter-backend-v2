@@ -8,7 +8,6 @@ const util = require('util');
 const unlinkAsync = util.promisify(fs.unlink);
 
 // Get products by category
-
 exports.getProductsByCategory = async (req, res) => {
   try {
     const { category_id } = req.query;
@@ -34,7 +33,7 @@ exports.getProductsByCategory = async (req, res) => {
       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
       WHERE p.category_id = ? 
       ORDER BY p.name ASC
-    `, [parseInt(category_id)]); // FIXED: Added parseInt
+    `, [category_id]);
     
     res.status(200).json({ products });
   } catch (error) {
@@ -43,12 +42,10 @@ exports.getProductsByCategory = async (req, res) => {
   }
 };
 
-// Get all products with optional category filter - FIXED VERSION
+// Get all products with optional category filter
 exports.getAllProducts = async (req, res) => {
   try {
-    const { category_id } = req.query;
-    const limit = parseInt(req.query.limit) || 20;
-    const page = parseInt(req.query.page) || 1;
+    const { category_id, limit = 20, page = 1 } = req.query;
     const offset = (page - 1) * limit;
     
     let query, params = [];
@@ -66,13 +63,12 @@ exports.getAllProducts = async (req, res) => {
     // Add category filter if provided
     if (category_id) {
       query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [parseInt(category_id), limit, offset]; // FIXED: All parameters in array
+      params = [category_id, parseInt(limit), offset];
     } else {
       query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [limit, offset]; // FIXED: Parameters in array
+      params = [parseInt(limit), offset];
     }
     
-    console.log('Executing query with params:', { query, params });
     const [products] = await db.execute(query, params);
     
     // Fetch all images for each product efficiently
@@ -96,9 +92,9 @@ exports.getAllProducts = async (req, res) => {
         product.images = imagesByProduct[product.id] || [];
       });
       
-      console.log('First product primary_image:', products[0]?.primary_image);
-      console.log('First product name:', products[0]?.name);
-      console.log(`Fetched ${products.length} products with images`);
+      console.log(' First product primary_image:', products[0].primary_image);
+      console.log(' First product name:', products[0].name);
+      console.log(` Fetched ${products.length} products with images`);
     }
     
     // Count total records for pagination
@@ -106,7 +102,7 @@ exports.getAllProducts = async (req, res) => {
     
     if (category_id) {
       countQuery = 'SELECT COUNT(*) as total FROM products WHERE category_id = ?';
-      countParams = [parseInt(category_id)]; // FIXED: Added parseInt
+      countParams = [category_id];
     } else {
       countQuery = 'SELECT COUNT(*) as total FROM products';
     }
@@ -118,14 +114,14 @@ exports.getAllProducts = async (req, res) => {
       products,
       pagination: {
         total,
-        page: page,
-        limit: limit,
+        page: parseInt(page),
+        limit: parseInt(limit),
         pages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({ error: 'Failed to fetch products: ' + error.message });
+    res.status(500).json({ error: 'Failed to fetch products' });
   }
 };
 
@@ -141,7 +137,7 @@ exports.getProductById = async (req, res) => {
       LEFT JOIN products_categories pc ON p.category_id = pc.id
       WHERE p.id = ?
     `;
-    const [productResult] = await db.execute(productQuery, [parseInt(id)]); // FIXED: Added parseInt
+    const [productResult] = await db.execute(productQuery, [id]);
     
     if (productResult.length === 0) {
       return res.status(404).json({ error: 'Product not found' });
@@ -151,7 +147,7 @@ exports.getProductById = async (req, res) => {
     
     // Get product images
     const imagesQuery = 'SELECT * FROM product_images WHERE product_id = ?';
-    const [images] = await db.execute(imagesQuery, [parseInt(id)]); // FIXED: Added parseInt
+    const [images] = await db.execute(imagesQuery, [id]);
     
     // Get product ratings
     const ratingsQuery = `
@@ -161,7 +157,7 @@ exports.getProductById = async (req, res) => {
       WHERE pr.product_id = ?
       ORDER BY pr.created_at DESC
     `;
-    const [ratings] = await db.execute(ratingsQuery, [parseInt(id)]); // FIXED: Added parseInt
+    const [ratings] = await db.execute(ratingsQuery, [id]);
     
     // Calculate average rating
     let avgRating = 0;
@@ -200,7 +196,7 @@ exports.createProduct = async (req, res) => {
     // Validate category exists
     const [categoryCheck] = await connection.execute(
       'SELECT id FROM products_categories WHERE id = ?',
-      [parseInt(category_id)] // FIXED: Added parseInt
+      [category_id]
     );
     
     if (categoryCheck.length === 0) {
@@ -211,7 +207,7 @@ exports.createProduct = async (req, res) => {
     // Create product
     const [productResult] = await connection.execute(
       'INSERT INTO products (category_id, name, description, price, stock) VALUES (?, ?, ?, ?, ?)',
-      [parseInt(category_id), name, description, parseFloat(price), parseInt(stock) || 0] // FIXED: Added parseInt/parseFloat
+      [category_id, name, description, price, stock || 0]
     );
     
     const productId = productResult.insertId;
@@ -233,11 +229,11 @@ exports.createProduct = async (req, res) => {
     
     res.status(201).json({
       id: productId,
-      category_id: parseInt(category_id),
+      category_id,
       name,
       description,
-      price: parseFloat(price),
-      stock: parseInt(stock) || 0,
+      price,
+      stock: stock || 0,
       image_uploaded: imageUploaded,
       created_at: new Date().toISOString()
     });
@@ -267,7 +263,7 @@ exports.updateProduct = async (req, res) => {
     // Check if product exists
     const [productCheck] = await connection.execute(
       'SELECT id FROM products WHERE id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     if (productCheck.length === 0) {
@@ -279,7 +275,7 @@ exports.updateProduct = async (req, res) => {
     if (category_id) {
       const [categoryCheck] = await connection.execute(
         'SELECT id FROM products_categories WHERE id = ?',
-        [parseInt(category_id)] // FIXED: Added parseInt
+        [category_id]
       );
       
       if (categoryCheck.length === 0) {
@@ -291,7 +287,7 @@ exports.updateProduct = async (req, res) => {
     // Update product
     const [updateResult] = await connection.execute(
       'UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, stock = ? WHERE id = ?',
-      [parseInt(category_id), name, description, parseFloat(price), parseInt(stock) || 0, parseInt(id)] // FIXED: Added parseInt/parseFloat
+      [category_id, name, description, price, stock || 0, id]
     );
     
     // Process image upload if provided
@@ -302,7 +298,7 @@ exports.updateProduct = async (req, res) => {
       // Check if there's already a primary image
       const [primaryImageCheck] = await connection.execute(
         'SELECT id, image_url FROM product_images WHERE product_id = ? AND is_primary = true',
-        [parseInt(id)] // FIXED: Added parseInt
+        [id]
       );
       
       if (primaryImageCheck.length > 0) {
@@ -321,7 +317,7 @@ exports.updateProduct = async (req, res) => {
         // Create new primary image
         await connection.execute(
           'INSERT INTO product_images (product_id, image_url, is_primary) VALUES (?, ?, true)',
-          [parseInt(id), imagePath] // FIXED: Added parseInt
+          [id, imagePath]
         );
       }
       
@@ -332,11 +328,11 @@ exports.updateProduct = async (req, res) => {
     
     res.status(200).json({
       id: parseInt(id),
-      category_id: parseInt(category_id),
+      category_id,
       name,
       description,
-      price: parseFloat(price),
-      stock: parseInt(stock) || 0,
+      price,
+      stock: stock || 0,
       image_uploaded: imageUploaded,
       updated_at: new Date().toISOString()
     });
@@ -360,7 +356,7 @@ exports.deleteProduct = async (req, res) => {
     // Check if product exists
     const [productCheck] = await connection.execute(
       'SELECT id FROM products WHERE id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     if (productCheck.length === 0) {
@@ -371,7 +367,7 @@ exports.deleteProduct = async (req, res) => {
     // Get product images to delete files
     const [images] = await connection.execute(
       'SELECT image_url FROM product_images WHERE product_id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     // Delete product images from filesystem
@@ -383,7 +379,7 @@ exports.deleteProduct = async (req, res) => {
     }
     
     // Delete product (cascades to images and ratings)
-    await connection.execute('DELETE FROM products WHERE id = ?', [parseInt(id)]); // FIXED: Added parseInt
+    await connection.execute('DELETE FROM products WHERE id = ?', [id]);
     
     await connection.commit();
     
@@ -409,7 +405,7 @@ exports.addProductImage = async (req, res) => {
     // Check if product exists
     const [productCheck] = await db.execute(
       'SELECT id FROM products WHERE id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     if (productCheck.length === 0) {
@@ -427,14 +423,14 @@ exports.addProductImage = async (req, res) => {
     if (isPrimary) {
       await db.execute(
         'UPDATE product_images SET is_primary = false WHERE product_id = ? AND is_primary = true',
-        [parseInt(id)] // FIXED: Added parseInt
+        [id]
       );
     }
     
     // Add new image
     const [imageResult] = await db.execute(
       'INSERT INTO product_images (product_id, image_url, is_primary) VALUES (?, ?, ?)',
-      [parseInt(id), imagePath, isPrimary] // FIXED: Added parseInt
+      [id, imagePath, isPrimary]
     );
     
     res.status(201).json({
@@ -458,7 +454,7 @@ exports.deleteProductImage = async (req, res) => {
     // Check if image exists and belongs to product
     const [imageCheck] = await db.execute(
       'SELECT * FROM product_images WHERE id = ? AND product_id = ?',
-      [parseInt(imageId), parseInt(id)] // FIXED: Added parseInt
+      [imageId, id]
     );
     
     if (imageCheck.length === 0) {
@@ -474,13 +470,13 @@ exports.deleteProductImage = async (req, res) => {
     }
     
     // Delete image record
-    await db.execute('DELETE FROM product_images WHERE id = ?', [parseInt(imageId)]); // FIXED: Added parseInt
+    await db.execute('DELETE FROM product_images WHERE id = ?', [imageId]);
     
     // If deleted image was primary, set another image as primary if available
     if (imageData.is_primary) {
       const [otherImages] = await db.execute(
         'SELECT id FROM product_images WHERE product_id = ? LIMIT 1',
-        [parseInt(id)] // FIXED: Added parseInt
+        [id]
       );
       
       if (otherImages.length > 0) {
@@ -509,7 +505,7 @@ exports.setPrimaryImage = async (req, res) => {
     // Check if image exists and belongs to product
     const [imageCheck] = await db.execute(
       'SELECT * FROM product_images WHERE id = ? AND product_id = ?',
-      [parseInt(imageId), parseInt(id)] // FIXED: Added parseInt
+      [imageId, id]
     );
     
     if (imageCheck.length === 0) {
@@ -519,13 +515,13 @@ exports.setPrimaryImage = async (req, res) => {
     // Update all product images to not be primary
     await db.execute(
       'UPDATE product_images SET is_primary = false WHERE product_id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     // Set selected image as primary
     await db.execute(
       'UPDATE product_images SET is_primary = true WHERE id = ?',
-      [parseInt(imageId)] // FIXED: Added parseInt
+      [imageId]
     );
     
     res.status(200).json({
@@ -553,7 +549,7 @@ exports.rateProduct = async (req, res) => {
     // Check if product exists
     const [productCheck] = await db.execute(
       'SELECT id FROM products WHERE id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     if (productCheck.length === 0) {
@@ -563,7 +559,7 @@ exports.rateProduct = async (req, res) => {
     // Check if user exists
     const [userCheck] = await db.execute(
       'SELECT id FROM users WHERE id = ?',
-      [parseInt(user_id)] // FIXED: Added parseInt
+      [user_id]
     );
     
     if (userCheck.length === 0) {
@@ -573,7 +569,7 @@ exports.rateProduct = async (req, res) => {
     // Check if user already rated this product
     const [existingRating] = await db.execute(
       'SELECT id FROM product_ratings WHERE product_id = ? AND user_id = ?',
-      [parseInt(id), parseInt(user_id)] // FIXED: Added parseInt
+      [id, user_id]
     );
     
     let ratingId;
@@ -582,14 +578,14 @@ exports.rateProduct = async (req, res) => {
       // Update existing rating
       await db.execute(
         'UPDATE product_ratings SET rating = ?, review = ? WHERE id = ?',
-        [parseInt(rating), review, existingRating[0].id] // FIXED: Added parseInt
+        [rating, review, existingRating[0].id]
       );
       ratingId = existingRating[0].id;
     } else {
       // Create new rating
       const [ratingResult] = await db.execute(
         'INSERT INTO product_ratings (product_id, user_id, rating, review) VALUES (?, ?, ?, ?)',
-        [parseInt(id), parseInt(user_id), parseInt(rating), review] // FIXED: Added parseInt
+        [id, user_id, rating, review]
       );
       ratingId = ratingResult.insertId;
     }
@@ -597,14 +593,14 @@ exports.rateProduct = async (req, res) => {
     // Update average rating in products table
     const [ratingsData] = await db.execute(
       'SELECT AVG(rating) as avg_rating FROM product_ratings WHERE product_id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     const avgRating = ratingsData[0].avg_rating;
     
     await db.execute(
       'UPDATE products SET rating = ? WHERE id = ?',
-      [avgRating, parseInt(id)] // FIXED: Added parseInt
+      [avgRating, id]
     );
     
     res.status(200).json({
@@ -629,7 +625,7 @@ exports.deleteRating = async (req, res) => {
     // Check if rating exists and belongs to product
     const [ratingCheck] = await db.execute(
       'SELECT * FROM product_ratings WHERE id = ? AND product_id = ?',
-      [parseInt(ratingId), parseInt(id)] // FIXED: Added parseInt
+      [ratingId, id]
     );
     
     if (ratingCheck.length === 0) {
@@ -637,19 +633,19 @@ exports.deleteRating = async (req, res) => {
     }
     
     // Delete rating
-    await db.execute('DELETE FROM product_ratings WHERE id = ?', [parseInt(ratingId)]); // FIXED: Added parseInt
+    await db.execute('DELETE FROM product_ratings WHERE id = ?', [ratingId]);
     
     // Update average rating in products table
     const [ratingsData] = await db.execute(
       'SELECT AVG(rating) as avg_rating FROM product_ratings WHERE product_id = ?',
-      [parseInt(id)] // FIXED: Added parseInt
+      [id]
     );
     
     const avgRating = ratingsData[0].avg_rating || 0;
     
     await db.execute(
       'UPDATE products SET rating = ? WHERE id = ?',
-      [avgRating, parseInt(id)] // FIXED: Added parseInt
+      [avgRating, id]
     );
     
     res.status(200).json({
