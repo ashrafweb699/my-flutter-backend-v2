@@ -75,12 +75,13 @@ exports.getAllProducts = async (req, res) => {
     }
 
     // Add category filter if provided and valid
+    // Note: LIMIT and OFFSET cannot use placeholders in some MySQL versions
     if (catId !== null) {
-      query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [catId, limit, offset];
+      query = `${baseQuery} WHERE p.category_id = ? ORDER BY p.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      params = [catId];
     } else {
-      query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-      params = [limit, offset];
+      query = `${baseQuery} ORDER BY p.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      params = [];
     }
 
     // Debug log for SQL params (will appear in server logs)
