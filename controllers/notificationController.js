@@ -67,6 +67,9 @@ exports.sendNotification = async (req, res) => {
                     case 'drivers':
                         tokens = await getDriverTokens();
                         break;
+                    case 'delivery_boys':
+                        tokens = await getDeliveryBoyTokens();
+                        break;
                     case 'shopkeepers':
                         tokens = await getShopkeeperTokens();
                         break;
@@ -74,7 +77,7 @@ exports.sendNotification = async (req, res) => {
                         tokens = await getBusManagerTokens();
                         break;
                     default:
-                        console.warn(`Unknown recipient type: ${recipientType}`);
+                        console.warn(`⚠️ Unknown recipient type: ${recipientType}`);
                         continue;
                 }
             }
@@ -125,10 +128,21 @@ exports.sendNotification = async (req, res) => {
                 }
             };
 
-            // Add image URL if provided
+            // Add image URL if provided (convert to full URL if needed)
             if (imageUrl) {
-                payload.notification.imageUrl = imageUrl;
-                payload.data.imageUrl = imageUrl;
+                let fullImageUrl = imageUrl;
+                
+                // If relative path, convert to full URL
+                if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+                    const baseUrl = process.env.BASE_URL || 'http://my-flutter-backend-v2-production.up.railway.app';
+                    fullImageUrl = imageUrl.startsWith('/') 
+                        ? `${baseUrl}${imageUrl}`
+                        : `${baseUrl}/${imageUrl}`;
+                }
+                
+                console.log(`📸 Image URL: ${imageUrl} → ${fullImageUrl}`);
+                payload.notification.imageUrl = fullImageUrl;
+                payload.data.imageUrl = fullImageUrl;
             }
 
             // Send to topic if there are many tokens to avoid payload size limits
@@ -277,35 +291,66 @@ async function getDriverTokens() {
     try {
         // Get all driver FCM tokens from users table (where user_type = 'driver')
         const [rows] = await pool.query(
-            "SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'driver'"
+            "SELECT id, name, fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'driver'"
         );
+        console.log(`📱 getDriverTokens: Found ${rows.length} drivers with tokens`);
+        rows.forEach(row => {
+            console.log(`   - Driver ID ${row.id} (${row.name}): Token ${row.fcm_token.substring(0, 20)}...`);
+        });
         return rows.map(r => r.fcm_token).filter(Boolean);
     } catch (error) {
-        console.error('Error getting driver tokens:', error);
+        console.error('❌ Error getting driver tokens:', error);
+        return [];
+    }
+}
+
+async function getDeliveryBoyTokens() {
+    try {
+        // Get all delivery boy FCM tokens from users table (where user_type = 'd_boy')
+        const [rows] = await pool.query(
+            "SELECT id, name, fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'd_boy'"
+        );
+        console.log(`📱 getDeliveryBoyTokens: Found ${rows.length} delivery boys with tokens`);
+        rows.forEach(row => {
+            console.log(`   - Delivery Boy ID ${row.id} (${row.name}): Token ${row.fcm_token.substring(0, 20)}...`);
+        });
+        return rows.map(r => r.fcm_token).filter(Boolean);
+    } catch (error) {
+        console.error('❌ Error getting delivery boy tokens:', error);
         return [];
     }
 }
 
 async function getShopkeeperTokens() {
     try {
+        // Query users table for shopkeeper user_type
         const [rows] = await pool.query(
-            'SELECT fcm_token FROM shopkeepers WHERE fcm_token IS NOT NULL AND fcm_token != \'\''
+            "SELECT id, name, fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'shopkeeper'"
         );
+        console.log(`📱 getShopkeeperTokens: Found ${rows.length} shopkeepers with tokens`);
+        rows.forEach(row => {
+            console.log(`   - Shopkeeper ID ${row.id} (${row.name}): Token ${row.fcm_token.substring(0, 20)}...`);
+        });
         return rows.map(r => r.fcm_token).filter(Boolean);
     } catch (error) {
-        console.error('Error getting shopkeeper tokens:', error);
+        console.error('❌ Error getting shopkeeper tokens:', error);
         return [];
     }
 }
 
 async function getBusManagerTokens() {
     try {
+        // Query users table for bus_manager user_type
         const [rows] = await pool.query(
-            'SELECT fcm_token FROM bus_managers WHERE fcm_token IS NOT NULL AND fcm_token != \'\''
+            "SELECT id, name, fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'bus_manager'"
         );
+        console.log(`📱 getBusManagerTokens: Found ${rows.length} bus managers with tokens`);
+        rows.forEach(row => {
+            console.log(`   - Bus Manager ID ${row.id} (${row.name}): Token ${row.fcm_token.substring(0, 20)}...`);
+        });
         return rows.map(r => r.fcm_token).filter(Boolean);
     } catch (error) {
-        console.error('Error getting bus manager tokens:', error);
+        console.error('❌ Error getting bus manager tokens:', error);
         return [];
     }
 }
