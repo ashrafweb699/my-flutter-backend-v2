@@ -18,6 +18,7 @@ const createServiceItemsOrdersTables = require('./db/migrations/create_service_i
 const createUserNotificationsTable = require('./db/migrations/create_user_notifications_table');
 const createBusManagerTables = require('./db/migrations/create_bus_manager_tables');
 const createShopkeeperTables = require('./db/migrations/create_shopkeeper_tables');
+const createChatTables = require('./db/migrations/create_chat_tables');
 
 // Load environment variables
 dotenv.config();
@@ -92,6 +93,9 @@ const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server, { cors: { origin: '*' } });
 
+// Make io available in app for controllers
+app.set('io', io);
+
 // Middlewares
 app.use(cors({
   origin: process.env.CLIENT_URL || '*',
@@ -132,6 +136,10 @@ async function runMigrations() {
     if (typeof createBusManagerTables === 'function') {
       await createBusManagerTables();
       console.log('Bus manager tables check/creation completed');
+    }
+    if (typeof createChatTables === 'function') {
+      await createChatTables();
+      console.log('Chat tables check/creation completed');
     }
     
     console.log('All migrations completed successfully');
@@ -176,6 +184,8 @@ app.use('/api/delivery-boys', require('./routes/deliveryBoys'));
 app.use('/api', require('./routes/bus')(io));
 // Team routes (drivers, delivery boys, bus managers, shopkeepers)
 app.use('/api/team', require('./routes/teamRoutes'));
+// Chat/Messaging routes
+app.use('/api/chat', require('./routes/chat'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', upload.single('image'), async (req, res) => {
