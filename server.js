@@ -27,33 +27,50 @@ dotenv.config();
 let firebaseAdmin = null;
 try {
   const admin = require('firebase-admin');
-  // Check if we have service account credentials
-  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
   
-  if (fs.existsSync(serviceAccountPath)) {
-    // Initialize with service account file (load JSON object, not path string)
-    const serviceAccount = require(path.resolve(serviceAccountPath));
+  // Try to get service account from environment variable first, then fallback to file
+  let serviceAccount = null;
+  
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Use environment variable (Railway/production)
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      console.log('✅ Using Firebase credentials from environment variable');
+    } catch (parseError) {
+      console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:', parseError.message);
+    }
+  } else {
+    // Use file (local development)
+    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
+    
+    if (fs.existsSync(serviceAccountPath)) {
+      serviceAccount = require(path.resolve(serviceAccountPath));
+      console.log('✅ Using Firebase credentials from file:', serviceAccountPath);
+    } else {
+      console.log(`⚠️ Service account file not found at ${serviceAccountPath}`);
+      console.log('To use Firebase Admin SDK:');
+      console.log('1. Go to Firebase Console → Project Settings → Service accounts');
+      console.log('2. Click "Generate new private key"');
+      console.log('3. Save as "firebase-service-account.json" in backend directory');
+      console.log('   OR set FIREBASE_SERVICE_ACCOUNT environment variable with JSON content');
+      console.log('4. Restart the server');
+    }
+  }
+  
+  if (serviceAccount) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-    console.log('Firebase Admin SDK initialized with service account');
+    console.log('✅ Firebase Admin SDK initialized successfully');
     firebaseAdmin = admin;
   } else {
-    // Initialize with default credentials (for environments like Firebase hosting)
-    console.log(`Service account file not found at ${serviceAccountPath}`);
-    console.log('To use Firebase Admin SDK:');
-    console.log('1. Go to Firebase Console -> Project Settings -> Service accounts');
-    console.log('2. Click "Generate new private key"');
-    console.log('3. Save the file as "firebase-service-account.json" in the backend directory');
-    console.log('4. Restart the server');
-    
-    // Try to initialize anyway for development purposes
+    // Try to initialize with default credentials as last resort
     try {
       admin.initializeApp();
-      console.log('Firebase Admin SDK initialized with default credentials');
+      console.log('⚠️ Firebase Admin SDK initialized with default credentials');
       firebaseAdmin = admin;
     } catch (innerError) {
-      console.error('Could not initialize with default credentials:', innerError.message);
+      console.error('❌ Could not initialize Firebase Admin SDK:', innerError.message);
     }
   }
 } catch (error) {

@@ -18,8 +18,19 @@ exports.sendNotification = async (req, res) => {
         // Check if Firebase Admin SDK is initialized
         if (!admin.apps.length) {
             try {
+                // Try environment variable first, then fallback to file
+                let serviceAccount = null;
+                
+                if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+                    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                    console.log('✅ Using Firebase credentials from environment variable');
+                } else {
+                    serviceAccount = require('../firebase-service-account.json');
+                    console.log('✅ Using Firebase credentials from file');
+                }
+                
                 admin.initializeApp({
-                    credential: admin.credential.cert(require('../firebase-service-account.json')),
+                    credential: admin.credential.cert(serviceAccount),
                 });
                 console.log('✅ Firebase Admin SDK initialized');
             } catch (error) {
