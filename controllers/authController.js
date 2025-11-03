@@ -334,17 +334,43 @@ function generateToken(userId, userType) {
  */
 async function storeFcmToken(userId, token) {
   try {
-    // Detach token from any other accounts to avoid cross-account mixups
-    await pool.query(
-      'UPDATE users SET fcm_token = NULL WHERE fcm_token = ? AND id <> ?',
+    console.log(`💾 Storing FCM token for user ${userId}...`);
+    console.log(`   Token: ${token.substring(0, 20)}...`);
+    
+    // Check if this token already belongs to another user
+    const [existingUsers] = await pool.query(
+      'SELECT id, name FROM users WHERE fcm_token = ? AND id <> ?',
       [token, userId]
     );
+    
+    // If token belongs to another user, clear it (device was re-used)
+    if (existingUsers.length > 0) {
+      const otherUser = existingUsers[0];
+      console.log(`⚠️ Token already assigned to user ${otherUser.id} (${otherUser.name})`);
+      console.log(`   Clearing from user ${otherUser.id} and assigning to user ${userId}`);
+      
+      await pool.query(
+        'UPDATE users SET fcm_token = NULL WHERE fcm_token = ? AND id <> ?',
+        [token, userId]
+      );
+    }
 
-    // Update on this user
+    // Update token for this user
     await pool.query('UPDATE users SET fcm_token = ? WHERE id = ?', [token, userId]);
-    console.log(`New FCM token stored for user ${userId}`);
+    console.log(`✅ New FCM token stored for user ${userId}`);
+    
+    // Verify storage
+    const [verification] = await pool.query(
+      'SELECT id, fcm_token FROM users WHERE id = ?',
+      [userId]
+    );
+    if (verification.length > 0 && verification[0].fcm_token === token) {
+      console.log(`✅ Token verified in database for user ${userId}`);
+    } else {
+      console.error(`❌ Token verification FAILED for user ${userId}`);
+    }
   } catch (error) {
-    console.error('Error storing FCM token:', error);
+    console.error('❌ Error storing FCM token:', error);
     // Don't throw error, just log it - this shouldn't break the auth flow
   }
 }
