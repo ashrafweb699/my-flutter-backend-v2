@@ -130,10 +130,11 @@ exports.getMessages = async (req, res) => {
 
     console.log(`📱 Fetching messages for conversation ${conversationId}`);
 
-    // Verify user has access to this conversation
+    // Verify user has access to this conversation (either as user_id or other_user_id)
     const [conversations] = await pool.query(`
-      SELECT * FROM conversations WHERE id = ? AND user_id = ?
-    `, [conversationId, userId]);
+      SELECT * FROM conversations 
+      WHERE id = ? AND (user_id = ? OR other_user_id = ?)
+    `, [conversationId, userId, userId]);
 
     if (conversations.length === 0) {
       return res.status(403).json({
@@ -201,10 +202,11 @@ exports.sendMessage = async (req, res) => {
 
     console.log(`📱 Sending message in conversation ${conversationId}`);
 
-    // Verify user has access to this conversation
+    // Verify user has access to this conversation (either as user_id or other_user_id)
     const [conversations] = await pool.query(`
-      SELECT * FROM conversations WHERE id = ? AND user_id = ?
-    `, [conversationId, userId]);
+      SELECT * FROM conversations 
+      WHERE id = ? AND (user_id = ? OR other_user_id = ?)
+    `, [conversationId, userId, userId]);
 
     if (conversations.length === 0) {
       return res.status(403).json({
@@ -214,7 +216,10 @@ exports.sendMessage = async (req, res) => {
     }
 
     const conversation = conversations[0];
-    const receiverId = conversation.other_user_id;
+    // Determine receiver based on who is sending
+    const receiverId = conversation.user_id === userId 
+      ? conversation.other_user_id 
+      : conversation.user_id;
 
     // Insert message
     const [result] = await pool.query(`
