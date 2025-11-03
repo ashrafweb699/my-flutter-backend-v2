@@ -153,6 +153,8 @@ exports.sendNotification = async (req, res) => {
                 for (const batch of batches) {
                     try {
                         console.log(`📤 Sending FCM to ${batch.length} tokens for ${recipientType}...`);
+                        console.log(`📋 Payload:`, JSON.stringify(payload.notification, null, 2));
+                        console.log(`📋 First token: ${batch[0].substring(0, 30)}...`);
                         
                         // Check if sendMulticast is available
                         const messaging = admin.messaging();
@@ -169,7 +171,10 @@ exports.sendNotification = async (req, res) => {
                             if (response.failureCount > 0 && response.responses) {
                                 response.responses.forEach((resp, idx) => {
                                     if (!resp.success) {
-                                        console.error(`❌ Failed to send to token ${idx}: ${resp.error?.message || 'Unknown error'}`);
+                                        const errorCode = resp.error?.code || 'unknown';
+                                        const errorMsg = resp.error?.message || 'Unknown error';
+                                        console.error(`❌ Token ${idx} failed - Code: ${errorCode}, Message: ${errorMsg}`);
+                                        console.error(`   Token was: ${batch[idx].substring(0, 30)}...`);
                                     }
                                 });
                             }
@@ -243,11 +248,15 @@ exports.sendNotification = async (req, res) => {
 async function getUserTokens() {
     try {
         const [rows] = await pool.query(
-            "SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'user'"
+            "SELECT id, name, fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'user'"
         );
+        console.log(`📱 getUserTokens: Found ${rows.length} users with tokens`);
+        rows.forEach(row => {
+            console.log(`   - User ID ${row.id} (${row.name}): Token ${row.fcm_token.substring(0, 20)}...`);
+        });
         return rows.map(r => r.fcm_token).filter(Boolean);
     } catch (error) {
-        console.error('Error getting user tokens:', error);
+        console.error('❌ Error getting user tokens:', error);
         return [];
     }
 }
