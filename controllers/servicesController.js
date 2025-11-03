@@ -149,45 +149,26 @@ exports.createService = async (req, res) => {
       console.log('No image provided, using placeholder');
     }
     
-    // Use provided ID or let MySQL generate one
-    const serviceId = id || null;
-    
-    let query = '';
-    let params = [];
-    
-    if (serviceId) {
-      // If ID provided, use it (useful for syncing with other systems)
-      query = `
-        INSERT INTO services (id, service_name, service_description, image, rating, active) 
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-      params = [
-        serviceId, 
-        name, 
-        description || '', 
-        finalImageUrl, 
-        rating || 0,
-        isActive === false ? 0 : 1
-      ];
-    } else {
-      // Let MySQL generate ID
-      query = `
-        INSERT INTO services (service_name, service_description, image, rating, active) 
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      params = [
-        name, 
-        description || '', 
-        finalImageUrl, 
-        rating || 0,
-        isActive === false ? 0 : 1
-      ];
+    // Always let MySQL auto-generate ID (ignore UUID from frontend)
+    // Services table has INT AUTO_INCREMENT id column
+    if (id && typeof id === 'string' && id.includes('-')) {
+      console.log('⚠️ Ignoring UUID from frontend, using auto-increment ID instead');
     }
     
-    const [result] = await pool.query(query, params);
+    const query = `
+      INSERT INTO services (service_name, service_description, image, rating, active) 
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const params = [
+      name, 
+      description || '', 
+      finalImageUrl, 
+      rating || 0,
+      isActive === false ? 0 : 1
+    ];
     
-    // Determine the ID (either provided or generated)
-    const newServiceId = serviceId || result.insertId;
+    const [result] = await pool.query(query, params);
+    const newServiceId = result.insertId;
     
     // Log what was saved to the database
     console.log('Created service in database with image:', finalImageUrl);

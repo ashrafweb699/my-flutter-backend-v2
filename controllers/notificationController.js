@@ -187,6 +187,18 @@ exports.sendNotification = async (req, res) => {
                             results.failure += response.failureCount;
                             
                             console.log(`✅ FCM sent to ${recipientType}: Success=${response.successCount}, Failure=${response.failureCount}`);
+                            
+                            // Log failures for debugging
+                            if (response.failureCount > 0 && response.responses) {
+                                response.responses.forEach((resp, idx) => {
+                                    if (!resp.success) {
+                                        const errorCode = resp.error?.code || 'unknown';
+                                        const errorMsg = resp.error?.message || 'Unknown error';
+                                        console.error(`❌ Token ${idx} failed (sendEach) - Code: ${errorCode}, Message: ${errorMsg}`);
+                                        console.error(`   Token was: ${batch[idx].substring(0, 30)}...`);
+                                    }
+                                });
+                            }
                         } else {
                             // Send one by one as last resort
                             console.log('⚠️ Using send() fallback (batch methods not available)');
