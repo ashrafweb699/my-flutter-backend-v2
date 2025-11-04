@@ -143,7 +143,13 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    // Get messages
+    const conversation = conversations[0];
+    const otherUserId = conversation.user_id === userId 
+      ? conversation.other_user_id 
+      : conversation.user_id;
+
+    // ✅ FIX: Get messages by user IDs, not conversation_id
+    // This ensures messages show in BOTH conversation records (user's and admin's)
     const [messages] = await pool.query(`
       SELECT 
         m.*,
@@ -155,26 +161,30 @@ exports.getMessages = async (req, res) => {
       JOIN users s ON m.sender_id = s.id
       LEFT JOIN user_profile sup ON s.id = sup.user_id
       JOIN users r ON m.receiver_id = r.id
-      WHERE m.conversation_id = ?
+      WHERE (m.sender_id = ? AND m.receiver_id = ?) 
+         OR (m.sender_id = ? AND m.receiver_id = ?)
       ORDER BY m.created_at DESC
       LIMIT ? OFFSET ?
-    `, [conversationId, limit, offset]);
+    `, [userId, otherUserId, otherUserId, userId, limit, offset]);
 
-    // Mark messages as read
+    // Mark messages as read (by user IDs)
     await pool.query(`
       UPDATE messages 
       SET is_read = 1, read_at = NOW()
-      WHERE conversation_id = ? AND receiver_id = ? AND is_read = 0
-    `, [conversationId, userId]);
+      WHERE (sender_id = ? OR receiver_id = ?) 
+        AND (sender_id = ? OR receiver_id = ?)
+        AND receiver_id = ? 
+        AND is_read = 0
+    `, [userId, userId, otherUserId, otherUserId, userId]);
 
-    // Update unread count
+    // Update unread count in ALL matching conversations
     await pool.query(`
       UPDATE conversations 
       SET unread_count = 0
-      WHERE id = ? AND user_id = ?
-    `, [conversationId, userId]);
+      WHERE user_id = ? AND other_user_id = ?
+    `, [userId, otherUserId]);
 
-    console.log(`✅ Found ${messages.length} messages`);
+    console.log(`✅ Found ${messages.length} messages between users ${userId} and ${otherUserId}`);
 
     res.status(200).json({
       success: true,
