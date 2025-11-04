@@ -93,7 +93,11 @@ const authRoutes = require('./routes/auth');
 const userProfileRoutes = require('./routes/user-profile');
 const usersRoutes = require('./routes/users');
 
-// Start FCM Token Cleanup Job (Daily at 3 AM)
+// DISABLED: FCM Token Cleanup Job 
+// Reason: Automatic cleanup was deleting tokens for logged-in users
+// Now tokens only cleared on explicit logout
+// If manual cleanup needed, call: FCMCleanupJob.runNow()
+/* 
 try {
   const FCMCleanupJob = require('./jobs/fcmTokenCleanup');
   FCMCleanupJob.start();
@@ -101,6 +105,8 @@ try {
 } catch (error) {
   console.log(' FCM cleanup job not started:', error.message);
 }
+*/
+console.log('⚠️ FCM automatic cleanup DISABLED - tokens cleared only on logout');
 
 // Create Express app
 const app = express();

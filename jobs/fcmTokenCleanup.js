@@ -9,31 +9,21 @@ const FCMTokenValidator = require('../services/fcmTokenValidator');
 class FCMCleanupJob {
   
   static start() {
-    // Run every day at 3 AM
-    cron.schedule('0 3 * * *', async () => {
-      console.log('🕐 Starting scheduled FCM token cleanup...');
-      
-      try {
-        const stats = await FCMTokenValidator.cleanInvalidTokens();
-        
-        console.log('✅ Scheduled cleanup completed:', {
-          total: stats.total,
-          valid: stats.valid,
-          invalid: stats.invalid,
-          cleaned: stats.cleaned
-        });
-
-        // Send report to admin if significant issues found
-        if (stats.cleaned > 10) {
-          await this.sendCleanupReport(stats);
-        }
-
-      } catch (error) {
-        console.error('❌ Scheduled cleanup failed:', error);
-      }
-    });
-
-    console.log('✅ FCM cleanup job scheduled (daily at 3 AM)');
+    // DISABLED: Automatic token cleanup
+    // Only clean tokens on explicit logout
+    // Reason: Temporary validation failures (phone off, network issues) 
+    // should NOT delete tokens for logged-in users
+    
+    console.log('⚠️ FCM automatic cleanup DISABLED');
+    console.log('   Tokens will only be cleared on user logout');
+    console.log('   Use FCMCleanupJob.runNow() for manual cleanup if needed');
+    
+    // ORIGINAL CODE (DISABLED):
+    // cron.schedule('0 3 * * *', async () => {
+    //   console.log('🕐 Starting scheduled FCM token cleanup...');
+    //   const stats = await FCMTokenValidator.cleanInvalidTokens();
+    //   ...
+    // });
   }
 
   static async sendCleanupReport(stats) {
