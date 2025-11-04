@@ -332,12 +332,16 @@ exports.deleteService = async (req, res) => {
       return res.status(404).json({ error: 'Service not found' });
     }
     
-    // Soft delete by setting active to 0
-    await pool.query('UPDATE services SET active = 0, updated_at = NOW() WHERE id = ?', [serviceId]);
+    console.log(`🗑️ Deleting service ${serviceId} (${checkRows[0].service_name})...`);
     
+    // HARD DELETE - Actually remove from database
+    // Admin explicitly delete kar raha hai, toh properly delete karo
+    await pool.query('DELETE FROM services WHERE id = ?', [serviceId]);
+    
+    console.log(`✅ Service ${serviceId} deleted successfully`);
     res.json({ message: 'Service deleted successfully' });
   } catch (error) {
-    console.error('Error deleting service:', error);
+    console.error('❌ Error deleting service:', error);
     res.status(500).json({ error: 'Failed to delete service' });
   }
 };
