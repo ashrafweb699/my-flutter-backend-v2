@@ -26,11 +26,14 @@ exports.getUserProfile = async (req, res) => {
     // Profile data overrides user data if both have mobile_number
     const profileData = profiles.length > 0 ? profiles[0] : {};
     
+    // Remove 'id' and 'user_id' from profileData to avoid overriding userData.id
+    const { id: profileId, user_id, ...profileDataWithoutIds } = profileData;
+    
     res.json({
       success: true,
       data: {
         ...userData,
-        ...profileData,
+        ...profileDataWithoutIds,
         // Ensure mobile_number is set from either source
         mobile_number: profileData.mobile_number || userData.mobile_number || null
       }
@@ -85,12 +88,15 @@ exports.updateUserProfile = async (req, res) => {
     const userData = users[0];
     const profileData = profiles.length > 0 ? profiles[0] : {};
     
+    // Remove 'id' and 'user_id' from profileData to avoid overriding userData.id
+    const { id: profileId, user_id, ...profileDataWithoutIds } = profileData;
+    
     res.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
         ...userData,
-        ...profileData,
+        ...profileDataWithoutIds,
         // Ensure mobile_number is set from either source
         mobile_number: profileData.mobile_number || userData.mobile_number || null
       }
