@@ -10,8 +10,10 @@ const { protect } = require('../middleware/auth');
 const chatUploadsDir = path.join(__dirname, '../uploads/chat');
 const imageDir = path.join(chatUploadsDir, 'images');
 const audioDir = path.join(chatUploadsDir, 'audio');
+const videoDir = path.join(chatUploadsDir, 'videos');
+const documentDir = path.join(chatUploadsDir, 'documents');
 
-[chatUploadsDir, imageDir, audioDir].forEach(dir => {
+[chatUploadsDir, imageDir, audioDir, videoDir, documentDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -21,7 +23,12 @@ const audioDir = path.join(chatUploadsDir, 'audio');
 const chatStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const fileType = req.body.fileType || 'image';
-    const uploadPath = fileType === 'audio' ? audioDir : imageDir;
+    let uploadPath = imageDir;
+    
+    if (fileType === 'audio') uploadPath = audioDir;
+    else if (fileType === 'video') uploadPath = videoDir;
+    else if (fileType === 'document') uploadPath = documentDir;
+    
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
@@ -32,7 +39,7 @@ const chatStorage = multer.diskStorage({
   }
 });
 
-// File filter for images and audio
+// File filter for all media types
 const chatFileFilter = (req, file, cb) => {
   const fileType = req.body.fileType;
   
@@ -56,6 +63,25 @@ const chatFileFilter = (req, file, cb) => {
     } else {
       cb(new Error('Only audio files (mp3, m4a, aac, wav, ogg) are allowed'));
     }
+  } else if (fileType === 'video') {
+    const videoTypes = /mp4|mov|avi|mkv|webm|3gp/;
+    const extname = videoTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = file.mimetype.startsWith('video/');
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only video files (mp4, mov, avi, mkv, webm, 3gp) are allowed'));
+    }
+  } else if (fileType === 'document') {
+    const documentTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|apk|zip/;
+    const extname = documentTypes.test(path.extname(file.originalname).toLowerCase());
+    
+    if (extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only document files (pdf, doc, docx, xls, xlsx, ppt, pptx, txt, apk, zip) are allowed'));
+    }
   } else {
     cb(new Error('Invalid file type'));
   }
@@ -66,7 +92,7 @@ const chatUpload = multer({
   storage: chatStorage,
   fileFilter: chatFileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 50 * 1024 * 1024 // 50MB limit for videos and documents
   }
 });
 
