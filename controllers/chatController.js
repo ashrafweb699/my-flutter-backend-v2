@@ -472,3 +472,151 @@ exports.deleteConversation = async (req, res) => {
     });
   }
 };
+
+/**
+ * Clear all messages in a conversation
+ */
+exports.clearAllMessages = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { conversationId } = req.params;
+
+    console.log(`🗑️ Clearing all messages in conversation ${conversationId}`);
+
+    // Verify user owns this conversation
+    const [conversations] = await pool.query(`
+      SELECT * FROM conversations WHERE id = ? AND user_id = ?
+    `, [conversationId, userId]);
+
+    if (conversations.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // Delete all messages in this conversation
+    await pool.query('DELETE FROM messages WHERE conversation_id = ?', [conversationId]);
+
+    // Update conversation last message
+    await pool.query(`
+      UPDATE conversations 
+      SET last_message = NULL, 
+          last_message_time = NULL,
+          last_message_sender_id = NULL,
+          unread_count = 0
+      WHERE id = ?
+    `, [conversationId]);
+
+    console.log('✅ All messages cleared');
+
+    res.status(200).json({
+      success: true,
+      message: 'All messages cleared successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error clearing messages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear messages',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Delete a single message
+ */
+exports.deleteMessage = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messageId } = req.params;
+    const { deleteForEveryone } = req.query;
+
+    console.log(`🗑️ Deleting message ${messageId}, deleteForEveryone: ${deleteForEveryone}`);
+
+    // Get message details
+    const [messages] = await pool.query(`
+      SELECT m.*, c.user_id as conversation_owner
+      FROM messages m
+      JOIN conversations c ON m.conversation_id = c.id
+      WHERE m.id = ?
+    `, [messageId]);
+
+    if (messages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    const message = messages[0];
+
+    // Check permissions
+    if (deleteForEveryone === 'true') {
+      // Only sender can delete for everyone
+      if (message.sender_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only delete your own messages for everyone'
+        });
+      }
+      
+      // Delete message completely
+      await pool.query('DELETE FROM messages WHERE id = ?', [messageId]);
+      console.log('✅ Message deleted for everyone');
+      
+    } else {
+      // Delete for me only - just mark as deleted for this user
+      // For now, we'll delete it completely (you can implement soft delete later)
+      await pool.query('DELETE FROM messages WHERE id = ?', [messageId]);
+      console.log('✅ Message deleted for user');
+    }
+
+    // Update conversation last message if this was the last message
+    const [lastMessage] = await pool.query(`
+      SELECT * FROM messages 
+      WHERE conversation_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `, [message.conversation_id]);
+
+    if (lastMessage.length > 0) {
+      await pool.query(`
+        UPDATE conversations 
+        SET last_message = ?,
+            last_message_time = ?,
+            last_message_sender_id = ?
+        WHERE id = ?
+      `, [
+        lastMessage[0].message_text,
+        lastMessage[0].created_at,
+        lastMessage[0].sender_id,
+        message.conversation_id
+      ]);
+    } else {
+      // No messages left
+      await pool.query(`
+        UPDATE conversations 
+        SET last_message = NULL,
+            last_message_time = NULL,
+            last_message_sender_id = NULL
+        WHERE id = ?
+      `, [message.conversation_id]);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Message deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete message',
+      error: error.message
+    });
+  }
+};

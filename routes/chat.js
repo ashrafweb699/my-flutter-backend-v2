@@ -128,4 +128,10 @@ router.put('/conversation/:conversationId/read', chatController.markAsRead);
 // Delete a conversation
 router.delete('/conversation/:conversationId', chatController.deleteConversation);
 
+// Clear all messages in a conversation
+router.delete('/conversation/:conversationId/messages', chatController.clearAllMessages);
+
+// Delete a single message
+router.delete('/message/:messageId', chatController.deleteMessage);
+
 module.exports = router;
