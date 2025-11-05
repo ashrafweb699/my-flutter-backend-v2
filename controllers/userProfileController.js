@@ -7,8 +7,8 @@ exports.getUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // First get user data (including mobile_number if exists in users table)
-    const [users] = await pool.query('SELECT id, name, email, user_type, mobile_number, created_at FROM users WHERE id = ?', [userId]);
+    // First get user data from users table
+    const [users] = await pool.query('SELECT id, name, email, user_type, created_at FROM users WHERE id = ?', [userId]);
     
     if (users.length === 0) {
       return res.status(404).json({
@@ -75,8 +75,8 @@ exports.updateUserProfile = async (req, res) => {
       console.log('✅ Profile updated');
     }
 
-    // Get updated user data (including mobile_number if exists in users table)
-    const [users] = await pool.query('SELECT id, name, email, user_type, mobile_number, created_at FROM users WHERE id = ?', [userId]);
+    // Get updated user data from users table
+    const [users] = await pool.query('SELECT id, name, email, user_type, created_at FROM users WHERE id = ?', [userId]);
     
     // Get updated profile data
     const [profiles] = await pool.query('SELECT * FROM user_profile WHERE user_id = ?', [userId]);
