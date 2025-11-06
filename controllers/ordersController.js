@@ -198,7 +198,7 @@ exports.updateStatus = (io) => async (req, res) => {
 
     // Send FCM notification to user
     try {
-      const userId = order.userId;
+      const userId = order.user_id || order.userId;
       if (userId) {
         const [userRows] = await pool.query(
           'SELECT fcm_token FROM users WHERE id = ? AND fcm_token IS NOT NULL AND fcm_token != \'\'',
