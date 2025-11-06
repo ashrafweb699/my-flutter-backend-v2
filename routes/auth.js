@@ -9,6 +9,7 @@ router.post('/login', authController.login);
 
 // Protected routes (require authentication)
 router.get('/me', protect, authController.getMe);
+router.get('/approval-status', protect, authController.getApprovalStatus);
 router.put('/update-profile', protect, authController.updateProfile);
 router.put('/change-password', protect, authController.changePassword);
 router.put('/clear-fcm-token', protect, authController.clearFcmToken);

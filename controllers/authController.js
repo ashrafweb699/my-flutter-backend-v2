@@ -434,3 +434,89 @@ exports.updateFcmToken = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get approval status for driver, delivery boy, shopkeeper, or bus manager
+ */
+exports.getApprovalStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userType = req.user.user_type;
+    
+    console.log(`🔍 Checking approval status for user ${userId}, type: ${userType}`);
+    
+    let approvalStatus = null;
+    let tableName = null;
+    let statusField = 'approval_status';
+    
+    // Determine which table to check based on user type
+    switch (userType) {
+      case 'driver':
+        tableName = 'drivers';
+        break;
+      case 'delivery_boy':
+      case 'd_boy':
+        tableName = 'delivery_boys';
+        break;
+      case 'shopkeeper':
+        tableName = 'shopkeepers';
+        break;
+      case 'bus_manager':
+        tableName = 'bus_managers';
+        break;
+      default:
+        // Regular users and admins don't need approval
+        return res.json({
+          success: true,
+          needsApproval: false,
+          approved: true,
+          userType: userType
+        });
+    }
+    
+    // Query the appropriate table
+    const [rows] = await pool.query(
+      `SELECT ${statusField} FROM ${tableName} WHERE user_id = ?`,
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      console.log(`⚠️  No ${userType} record found for user ${userId}`);
+      return res.json({
+        success: true,
+        needsApproval: true,
+        approved: false,
+        status: 'pending',
+        message: `No ${userType} record found. Registration may be incomplete.`,
+        userType: userType
+      });
+    }
+    
+    approvalStatus = rows[0][statusField];
+    
+    // Normalize status values
+    const isApproved = approvalStatus === 'approved' || 
+                      approvalStatus === 'YES' || 
+                      approvalStatus === 'yes' ||
+                      approvalStatus === '1' ||
+                      approvalStatus === 1;
+    
+    console.log(`✅ Approval status for ${userType} ${userId}: ${approvalStatus} (approved: ${isApproved})`);
+    
+    res.json({
+      success: true,
+      needsApproval: true,
+      approved: isApproved,
+      status: approvalStatus,
+      userType: userType
+    });
+    
+  } catch (error) {
+    console.error('❌ Error checking approval status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check approval status',
+      error: error.message
+    });
+  }
+};

@@ -664,7 +664,7 @@ exports.updateDriverApproval = async (req, res) => {
     try {
       await pool.query(
         `INSERT INTO user_notifications (user_id, title, message, type, is_read)
-         VALUES (?, ?, ?, 'driver_approval', 0)`,
+         VALUES (?, ?, ?, 'general', 0)`,
         [driver.user_id, 'Application Update', `Your driver application is ${dbApprovalValue}.`]
       );
     } catch (e) {
