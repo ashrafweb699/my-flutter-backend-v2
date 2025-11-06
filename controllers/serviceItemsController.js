@@ -6,10 +6,21 @@ exports.create = async (req, res) => {
     if (!service_name || !sub_item_name || !unit) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+    
+    // Handle image upload
+    let finalImageUrl = image_url || '';
+    if (req.file) {
+      // If file was uploaded through multer
+      finalImageUrl = `uploads/services/${req.file.filename}`;
+      console.log('✅ Service item image uploaded:', finalImageUrl);
+    } else if (image_url) {
+      console.log('📝 Using provided image URL:', image_url);
+    }
+    
     const [r] = await pool.query(
       `INSERT INTO service_items (service_name, sub_item_name, description, image_url, price, unit, min_quantity)
        VALUES (?,?,?,?,?,?,?)`,
-      [service_name, sub_item_name, description || '', image_url || '', price || 0, unit, min_quantity || 1]
+      [service_name, sub_item_name, description || '', finalImageUrl, price || 0, unit, min_quantity || 1]
     );
     res.json({ id: r.insertId });
   } catch (e) {
@@ -47,9 +58,29 @@ exports.getOne = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { service_name, sub_item_name, description, image_url, price, unit, min_quantity } = req.body;
+    
+    // Handle image upload
+    let finalImageUrl = image_url || '';
+    if (req.file) {
+      // If new file was uploaded through multer
+      finalImageUrl = `uploads/services/${req.file.filename}`;
+      console.log('✅ Service item image updated:', finalImageUrl);
+    } else if (image_url) {
+      // Keep existing image URL
+      finalImageUrl = image_url;
+      console.log('📝 Keeping existing image URL:', image_url);
+    } else {
+      // No image provided, fetch existing one
+      const [existing] = await pool.query('SELECT image_url FROM service_items WHERE id = ?', [req.params.id]);
+      if (existing.length > 0) {
+        finalImageUrl = existing[0].image_url || '';
+        console.log('📝 Keeping existing image from DB:', finalImageUrl);
+      }
+    }
+    
     await pool.query(
       `UPDATE service_items SET service_name=?, sub_item_name=?, description=?, image_url=?, price=?, unit=?, min_quantity=? WHERE id=?`,
-      [service_name, sub_item_name, description || '', image_url || '', price || 0, unit, min_quantity || 1, req.params.id]
+      [service_name, sub_item_name, description || '', finalImageUrl, price || 0, unit, min_quantity || 1, req.params.id]
     );
     res.json({ updated: true });
   } catch (e) {
