@@ -138,8 +138,10 @@ exports.updateStatus = (io) => async (req, res) => {
     const params = [status, delivery_message || null];
     
     if (estimated_delivery_time) {
-      updates.push(`estimated_delivery_time = ?`);
-      params.push(estimated_delivery_time);
+      // Convert estimated time to DATETIME
+      const timeValue = parseInt(estimated_delivery_time);
+      const timeUnit = order_type === 'service' ? 'MINUTE' : 'DAY';
+      updates.push(`estimated_delivery_time = DATE_ADD(NOW(), INTERVAL ${timeValue} ${timeUnit})`);
     }
     
     if (order_type) {
