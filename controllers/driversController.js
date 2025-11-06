@@ -295,8 +295,8 @@ exports.createDriver = async (req, res) => {
       INSERT INTO drivers 
       (user_id, mobile_number, cnic_number, licence_number, vehicle_number, licence_expiry, 
        profile_image, cnic_front_image, cnic_back_image, licence_image, 
-       approval_status, rating, online_status, current_latitude, current_longitude) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offline', ?, ?)
+       approval_status, rating, online_status, current_latitude, current_longitude, last_location_update) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offline', ?, ?, NOW())
     `;
     
     // Process image paths - extract just the relative path from full URLs
@@ -429,7 +429,9 @@ exports.createDriver = async (req, res) => {
     
     // If there was an error during registration, make sure to clean up uploaded files
     try {
-      if (driver_id) {
+      // Use the driver_id from request body instead of undefined variable
+      const driverId = req.body.driver_id;
+      if (driverId) {
         // Import our enhanced cleanup utility if not already imported
         let cleanupUtil;
         try {
@@ -439,8 +441,8 @@ exports.createDriver = async (req, res) => {
         }
         
         if (cleanupUtil && cleanupUtil.cleanupDriverFiles) {
-          console.log(`Performing error cleanup for driver_id: ${driver_id}`);
-          await cleanupUtil.cleanupDriverFiles(driver_id);
+          console.log(`Performing error cleanup for driver_id: ${driverId}`);
+          await cleanupUtil.cleanupDriverFiles(driverId);
         }
       }
       
