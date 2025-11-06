@@ -317,10 +317,176 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Store user socket connections
+const userSockets = {}; // { userId: socketId }
+
 io.on('connection', (socket) => {
-  console.log('Socket connected:', socket.id);
+  console.log('✅ Socket connected:', socket.id);
+  
+  // Register user with their socket ID
+  socket.on('register_user', (data) => {
+    const { userId } = data;
+    userSockets[userId] = socket.id;
+    console.log(`👤 User ${userId} registered with socket ${socket.id}`);
+  });
+  
+  // Order status updates
   socket.on('order_status_update', (payload) => {
     io.emit('order_status_update', payload);
+  });
+  
+  // ============================================
+  // VOICE CALL REQUEST
+  // ============================================
+  socket.on('voice_call_request', async (data) => {
+    const { conversationId, roomName, callerId, callerName, receiverId, receiverName } = data;
+    
+    console.log('📞 VOICE CALL REQUEST:');
+    console.log(`   From: ${callerName} (ID: ${callerId})`);
+    console.log(`   To: ${receiverName} (ID: ${receiverId})`);
+    console.log(`   Room: ${roomName}`);
+    console.log(`   Conversation: ${conversationId}`);
+    
+    // Get receiver's socket ID
+    const receiverSocketId = userSockets[receiverId];
+    
+    if (receiverSocketId) {
+      // Receiver is online - send Socket.IO notification
+      io.to(receiverSocketId).emit('incoming_voice_call', {
+        conversationId,
+        roomName,
+        callerId,
+        callerName,
+        receiverId,
+        receiverName,
+      });
+      
+      console.log(`✅ Voice call notification sent to user ${receiverId} via Socket.IO`);
+    } else {
+      // Receiver is offline - send FCM notification
+      console.log(`⚠️ User ${receiverId} not connected via socket - sending FCM`);
+      
+      if (firebaseAdmin) {
+        try {
+          const { pool } = require('./config/db');
+          const [users] = await pool.query('SELECT fcm_token FROM users WHERE id = ?', [receiverId]);
+          
+          if (users.length > 0 && users[0].fcm_token) {
+            const message = {
+              notification: {
+                title: `📞 Incoming Call from ${callerName}`,
+                body: 'Voice call',
+              },
+              data: {
+                type: 'voice_call',
+                roomName,
+                callerId: callerId.toString(),
+                callerName,
+                conversationId: conversationId.toString(),
+              },
+              token: users[0].fcm_token,
+              android: {
+                priority: 'high',
+                notification: {
+                  sound: 'default',
+                  channelId: 'cab_booking_channel_v4',
+                },
+              },
+            };
+            
+            await firebaseAdmin.messaging().send(message);
+            console.log(`✅ FCM notification sent to user ${receiverId}`);
+          } else {
+            console.log(`⚠️ No FCM token for user ${receiverId}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error sending FCM to user ${receiverId}:`, error);
+        }
+      }
+    }
+  });
+  
+  // ============================================
+  // VIDEO CALL REQUEST
+  // ============================================
+  socket.on('video_call_request', async (data) => {
+    const { conversationId, roomName, callerId, callerName, receiverId, receiverName } = data;
+    
+    console.log('📹 VIDEO CALL REQUEST:');
+    console.log(`   From: ${callerName} (ID: ${callerId})`);
+    console.log(`   To: ${receiverName} (ID: ${receiverId})`);
+    console.log(`   Room: ${roomName}`);
+    console.log(`   Conversation: ${conversationId}`);
+    
+    // Get receiver's socket ID
+    const receiverSocketId = userSockets[receiverId];
+    
+    if (receiverSocketId) {
+      // Receiver is online - send Socket.IO notification
+      io.to(receiverSocketId).emit('incoming_video_call', {
+        conversationId,
+        roomName,
+        callerId,
+        callerName,
+        receiverId,
+        receiverName,
+      });
+      
+      console.log(`✅ Video call notification sent to user ${receiverId} via Socket.IO`);
+    } else {
+      // Receiver is offline - send FCM notification
+      console.log(`⚠️ User ${receiverId} not connected via socket - sending FCM`);
+      
+      if (firebaseAdmin) {
+        try {
+          const { pool } = require('./config/db');
+          const [users] = await pool.query('SELECT fcm_token FROM users WHERE id = ?', [receiverId]);
+          
+          if (users.length > 0 && users[0].fcm_token) {
+            const message = {
+              notification: {
+                title: `📹 Incoming Call from ${callerName}`,
+                body: 'Video call',
+              },
+              data: {
+                type: 'video_call',
+                roomName,
+                callerId: callerId.toString(),
+                callerName,
+                conversationId: conversationId.toString(),
+              },
+              token: users[0].fcm_token,
+              android: {
+                priority: 'high',
+                notification: {
+                  sound: 'default',
+                  channelId: 'cab_booking_channel_v4',
+                },
+              },
+            };
+            
+            await firebaseAdmin.messaging().send(message);
+            console.log(`✅ FCM notification sent to user ${receiverId}`);
+          } else {
+            console.log(`⚠️ No FCM token for user ${receiverId}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error sending FCM to user ${receiverId}:`, error);
+        }
+      }
+    }
+  });
+  
+  // Disconnect
+  socket.on('disconnect', () => {
+    // Remove user from socket mapping
+    for (const [userId, socketId] of Object.entries(userSockets)) {
+      if (socketId === socket.id) {
+        delete userSockets[userId];
+        console.log(`❌ User ${userId} disconnected`);
+        break;
+      }
+    }
   });
 });
 
