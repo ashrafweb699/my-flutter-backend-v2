@@ -5,7 +5,6 @@ exports.getAllAdvertisements = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT * FROM advertisements 
-      WHERE active = 1
       ORDER BY created_at DESC
     `);
     
@@ -16,6 +15,7 @@ exports.getAllAdvertisements = async (req, res) => {
       description: row.description,
       imageUrl: row.imageUrl ? `${req.protocol}://${req.get('host')}/uploads/${row.imageUrl}` : null,
       link: row.link,
+      isActive: row.active === 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -57,7 +57,9 @@ exports.getAdvertisementById = async (req, res) => {
 // Create a new advertisement
 exports.createAdvertisement = async (req, res) => {
   try {
-    const { title, description, link } = req.body;
+    const { title, description, link, isActive } = req.body;
+    
+    console.log('📢 Creating advertisement:', { title, description, link, isActive, hasFile: !!req.file });
     
     // Validate required fields
     if (!title) {
@@ -67,20 +69,26 @@ exports.createAdvertisement = async (req, res) => {
     // Get the image URL from the uploaded file (if any)
     const imageUrl = req.file ? req.file.filename : null;
     
+    // Parse isActive (comes as string from multipart form)
+    const active = isActive === '1' || isActive === 'true' || isActive === true ? 1 : 0;
+    
     const [result] = await pool.query(`
-      INSERT INTO advertisements (title, description, imageUrl, link) 
-      VALUES (?, ?, ?, ?)
-    `, [title, description || null, imageUrl, link || null]);
+      INSERT INTO advertisements (title, description, imageUrl, link, active) 
+      VALUES (?, ?, ?, ?, ?)
+    `, [title, description || null, imageUrl, link || null, active]);
+    
+    console.log('✅ Advertisement created with ID:', result.insertId);
     
     res.status(201).json({
       id: result.insertId,
       title,
       description,
       imageUrl: imageUrl ? `${req.protocol}://${req.get('host')}/uploads/${imageUrl}` : null,
-      link
+      link,
+      isActive: active === 1
     });
   } catch (error) {
-    console.error('Error creating advertisement:', error);
+    console.error('❌ Error creating advertisement:', error);
     res.status(500).json({ error: 'Failed to create advertisement' });
   }
 };
@@ -88,8 +96,10 @@ exports.createAdvertisement = async (req, res) => {
 // Update an advertisement
 exports.updateAdvertisement = async (req, res) => {
   try {
-    const { title, description, link, imageUrl } = req.body;
+    const { title, description, link, imageUrl, isActive } = req.body;
     const advertisementId = req.params.id;
+    
+    console.log('📝 Updating advertisement:', { id: advertisementId, title, description, link, isActive, hasFile: !!req.file });
     
     // Check if the advertisement exists
     const [checkRows] = await pool.query('SELECT * FROM advertisements WHERE id = ?', [advertisementId]);
@@ -123,18 +133,26 @@ exports.updateAdvertisement = async (req, res) => {
       console.log('Using imageUrl from request:', finalImageUrl);
     }
     
+    // Parse isActive (comes as string from multipart form)
+    const active = isActive !== undefined 
+      ? (isActive === '1' || isActive === 'true' || isActive === true ? 1 : 0)
+      : existingAdvertisement.active;
+    
     // Update the advertisement
     await pool.query(`
       UPDATE advertisements 
-      SET title = ?, description = ?, imageUrl = ?, link = ?, updated_at = NOW() 
+      SET title = ?, description = ?, imageUrl = ?, link = ?, active = ?, updated_at = NOW() 
       WHERE id = ?
     `, [
       title || existingAdvertisement.title,
       description !== undefined ? description : existingAdvertisement.description,
       finalImageUrl,
       link !== undefined ? link : existingAdvertisement.link,
+      active,
       advertisementId
     ]);
+    
+    console.log('✅ Advertisement updated successfully');
     
     res.json({
       id: advertisementId,
@@ -142,10 +160,11 @@ exports.updateAdvertisement = async (req, res) => {
       description: description !== undefined ? description : existingAdvertisement.description,
       imageUrl: finalImageUrl ? `${req.protocol}://${req.get('host')}/uploads/${finalImageUrl}` : null,
       link: link !== undefined ? link : existingAdvertisement.link,
+      isActive: active === 1,
       updatedAt: new Date()
     });
   } catch (error) {
-    console.error('Error updating advertisement:', error);
+    console.error('❌ Error updating advertisement:', error);
     res.status(500).json({ error: 'Failed to update advertisement' });
   }
 };
