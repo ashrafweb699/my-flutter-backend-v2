@@ -620,3 +620,101 @@ exports.deleteMessage = async (req, res) => {
     });
   }
 };
+
+/**
+ * Edit a message
+ */
+exports.editMessage = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messageId } = req.params;
+    const { newText } = req.body;
+
+    console.log(`✏️ Editing message ${messageId} by user ${userId}`);
+
+    if (!newText || newText.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'New message text is required'
+      });
+    }
+
+    // Get message details
+    const [messages] = await pool.query(`
+      SELECT m.*, c.user_id as conversation_owner
+      FROM messages m
+      JOIN conversations c ON m.conversation_id = c.id
+      WHERE m.id = ?
+    `, [messageId]);
+
+    if (messages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    const message = messages[0];
+
+    // Only sender can edit their own message
+    if (message.sender_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only edit your own messages'
+      });
+    }
+
+    // Only text messages can be edited
+    if (message.message_type !== 'text') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only text messages can be edited'
+      });
+    }
+
+    // Update message
+    await pool.query(`
+      UPDATE messages 
+      SET message_text = ?,
+          is_edited = TRUE,
+          edited_at = NOW()
+      WHERE id = ?
+    `, [newText.trim(), messageId]);
+
+    // Update conversation last message if this was the last message
+    const [lastMessage] = await pool.query(`
+      SELECT * FROM messages 
+      WHERE conversation_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `, [message.conversation_id]);
+
+    if (lastMessage.length > 0 && lastMessage[0].id === parseInt(messageId)) {
+      await pool.query(`
+        UPDATE conversations 
+        SET last_message = ?
+        WHERE id = ?
+      `, [newText.trim(), message.conversation_id]);
+    }
+
+    console.log('✅ Message edited successfully');
+
+    res.status(200).json({
+      success: true,
+      message: 'Message edited successfully',
+      data: {
+        messageId: messageId,
+        newText: newText.trim(),
+        editedAt: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error editing message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to edit message',
+      error: error.message
+    });
+  }
+};

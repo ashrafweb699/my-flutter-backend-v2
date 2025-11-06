@@ -592,6 +592,27 @@ io.on('connection', (socket) => {
     }
   });
   
+  // ============================================
+  // MESSAGE EDITED
+  // ============================================
+  socket.on('message_edited', (data) => {
+    const { messageId, newText, editedAt, conversationId, receiverId } = data;
+    
+    console.log(`✏️ Message ${messageId} edited in conversation ${conversationId}`);
+    
+    // Notify receiver
+    const receiverSocketId = userSockets[receiverId];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('message_edited', {
+        messageId,
+        newText,
+        editedAt,
+        conversationId,
+      });
+      console.log(`✅ Edit notification sent to user ${receiverId}`);
+    }
+  });
+  
   // Disconnect
   socket.on('disconnect', () => {
     // Remove user from socket mapping

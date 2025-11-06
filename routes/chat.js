@@ -160,4 +160,7 @@ router.delete('/conversation/:conversationId/messages', chatController.clearAllM
 // Delete a single message
 router.delete('/message/:messageId', chatController.deleteMessage);
 
+// Edit a message
+router.put('/message/:messageId', chatController.editMessage);
+
 module.exports = router;
