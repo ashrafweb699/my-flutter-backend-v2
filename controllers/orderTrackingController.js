@@ -8,11 +8,15 @@ exports.getOrderTracking = async (req, res) => {
     const [rows] = await pool.query(`
       SELECT 
         ot.*,
-        u.name as driver_name,
-        up.mobile_number as driver_phone
+        u.name as accepter_name,
+        up.mobile_number as accepter_phone,
+        d.name as driver_name,
+        dp.mobile_number as driver_phone
       FROM order_tracking ot
-      LEFT JOIN users u ON ot.driver_id = u.id
+      LEFT JOIN users u ON ot.accepted_by = u.id
       LEFT JOIN user_profile up ON u.id = up.user_id
+      LEFT JOIN users d ON ot.driver_id = d.id
+      LEFT JOIN user_profile dp ON d.id = dp.user_id
       WHERE ot.order_id = ?
       ORDER BY ot.updated_at DESC
       LIMIT 1
@@ -33,7 +37,11 @@ exports.getOrderTracking = async (req, res) => {
 exports.updateOrderLocation = async (req, res, io) => {
   try {
     const { orderId } = req.params;
-    const { latitude, longitude, driverId, status } = req.body;
+    const { latitude, longitude, driverId, acceptedBy, status } = req.body;
+    
+    // For order tracking, use acceptedBy (admin/d_boy)
+    // For cab booking, use driverId (cab driver)
+    const trackerId = acceptedBy || driverId;
     
     // Check if tracking record exists
     const [existing] = await pool.query(
@@ -44,20 +52,20 @@ exports.updateOrderLocation = async (req, res, io) => {
     if (existing.length === 0) {
       // Create new tracking record
       await pool.query(`
-        INSERT INTO order_tracking (order_id, driver_id, latitude, longitude, status)
+        INSERT INTO order_tracking (order_id, accepted_by, latitude, longitude, status)
         VALUES (?, ?, ?, ?, ?)
-      `, [orderId, driverId, latitude, longitude, status || 'out_for_delivery']);
+      `, [orderId, trackerId, latitude, longitude, status || 'out_for_delivery']);
     } else {
-      // Update existing record
+      // Update existing record - only update location, not accepter
       await pool.query(`
         UPDATE order_tracking 
-        SET latitude = ?, longitude = ?, driver_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+        SET latitude = ?, longitude = ?, status = ?, updated_at = CURRENT_TIMESTAMP
         WHERE order_id = ?
-      `, [latitude, longitude, driverId, status || 'out_for_delivery', orderId]);
+      `, [latitude, longitude, status || 'out_for_delivery', orderId]);
     }
     
-    // Update driver location
-    if (driverId) {
+    // Update accepter location (for real-time tracking)
+    if (trackerId) {
       await pool.query(`
         INSERT INTO driver_locations (driver_id, latitude, longitude, last_seen)
         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -65,19 +73,21 @@ exports.updateOrderLocation = async (req, res, io) => {
         latitude = VALUES(latitude),
         longitude = VALUES(longitude),
         last_seen = CURRENT_TIMESTAMP
-      `, [driverId, latitude, longitude]);
+      `, [trackerId, latitude, longitude]);
     }
     
     // Emit socket update for live tracking consumers
     try {
       io && io.emit('order_location_update', {
-        orderId,
+        order_id: orderId,
+        orderId: orderId,
         driverId,
         latitude,
         longitude,
         status: status || 'out_for_delivery',
         ts: Date.now()
       });
+      console.log(`📡 Emitted location update for order ${orderId}`);
     } catch (_) {}
 
     res.json({ success: true, message: 'Location updated successfully' });

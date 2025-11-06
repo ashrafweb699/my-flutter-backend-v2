@@ -161,6 +161,9 @@ exports.updateStatus = (io) => async (req, res) => {
     // Create or update order tracking record when order is accepted
     if (status === 'accepted' || status === 'confirmed') {
       try {
+        // Get accepter's user ID (admin or delivery boy)
+        const accepterId = req.user?.id || null;
+        
         // Check if tracking record exists
         const [trackingRows] = await pool.query(
           'SELECT id FROM order_tracking WHERE order_id = ?',
@@ -168,27 +171,28 @@ exports.updateStatus = (io) => async (req, res) => {
         );
         
         if (trackingRows.length === 0) {
-          // Create new tracking record with order's delivery location
+          // Create new tracking record with order's delivery location and accepter ID
           await pool.query(`
-            INSERT INTO order_tracking (order_id, status, latitude, longitude, order_type, estimated_delivery_time)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO order_tracking (order_id, accepted_by, status, latitude, longitude, order_type, estimated_delivery_time, tracking_start_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
           `, [
             id,
+            accepterId,
             status,
             order.latitude || null,
             order.longitude || null,
             order_type || 'product',
             estimated_delivery_time || null
           ]);
-          console.log(`✅ Created tracking record for order ${id}`);
+          console.log(`✅ Created tracking record for order ${id} with accepter ${accepterId}`);
         } else {
-          // Update existing tracking record
+          // Update existing tracking record with accepter ID
           await pool.query(`
             UPDATE order_tracking 
-            SET status = ?, order_type = ?, estimated_delivery_time = ?, updated_at = NOW()
+            SET accepted_by = ?, status = ?, order_type = ?, estimated_delivery_time = ?, tracking_start_time = NOW(), updated_at = NOW()
             WHERE order_id = ?
-          `, [status, order_type || 'product', estimated_delivery_time || null, id]);
-          console.log(`✅ Updated tracking record for order ${id}`);
+          `, [accepterId, status, order_type || 'product', estimated_delivery_time || null, id]);
+          console.log(`✅ Updated tracking record for order ${id} with accepter ${accepterId}`);
         }
       } catch (trackingError) {
         console.error('❌ Error creating/updating tracking record:', trackingError.message);
