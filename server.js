@@ -317,8 +317,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Store user socket connections
+// Store user socket connections and active calls
 const userSockets = {}; // { userId: socketId }
+const activeCalls = {}; // { userId: { roomName, otherUserId, callType, startTime } }
 
 io.on('connection', (socket) => {
   console.log('✅ Socket connected:', socket.id);
@@ -346,6 +347,36 @@ io.on('connection', (socket) => {
     console.log(`   To: ${receiverName} (ID: ${receiverId})`);
     console.log(`   Room: ${roomName}`);
     console.log(`   Conversation: ${conversationId}`);
+    
+    // Check if receiver is already in a call
+    if (activeCalls[receiverId]) {
+      console.log(`⚠️ User ${receiverId} is already in a call`);
+      const callerSocketId = userSockets[callerId];
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call_busy', {
+          message: `${receiverName} is currently on another call`,
+          receiverId,
+          receiverName,
+        });
+      }
+      return;
+    }
+    
+    // Mark both users as in call
+    activeCalls[callerId] = {
+      roomName,
+      otherUserId: receiverId,
+      callType: 'voice',
+      startTime: Date.now(),
+    };
+    activeCalls[receiverId] = {
+      roomName,
+      otherUserId: callerId,
+      callType: 'voice',
+      startTime: Date.now(),
+    };
+    
+    console.log(`✅ Call state created for users ${callerId} and ${receiverId}`);
     
     // Get receiver's socket ID
     const receiverSocketId = userSockets[receiverId];
@@ -418,6 +449,36 @@ io.on('connection', (socket) => {
     console.log(`   Room: ${roomName}`);
     console.log(`   Conversation: ${conversationId}`);
     
+    // Check if receiver is already in a call
+    if (activeCalls[receiverId]) {
+      console.log(`⚠️ User ${receiverId} is already in a call`);
+      const callerSocketId = userSockets[callerId];
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call_busy', {
+          message: `${receiverName} is currently on another call`,
+          receiverId,
+          receiverName,
+        });
+      }
+      return;
+    }
+    
+    // Mark both users as in call
+    activeCalls[callerId] = {
+      roomName,
+      otherUserId: receiverId,
+      callType: 'video',
+      startTime: Date.now(),
+    };
+    activeCalls[receiverId] = {
+      roomName,
+      otherUserId: callerId,
+      callType: 'video',
+      startTime: Date.now(),
+    };
+    
+    console.log(`✅ Call state created for users ${callerId} and ${receiverId}`);
+    
     // Get receiver's socket ID
     const receiverSocketId = userSockets[receiverId];
     
@@ -477,12 +538,85 @@ io.on('connection', (socket) => {
     }
   });
   
+  // ============================================
+  // CALL END
+  // ============================================
+  socket.on('call_ended', (data) => {
+    const { userId, roomName } = data;
+    
+    console.log(`📴 Call ended by user ${userId} in room ${roomName}`);
+    
+    // Get the other user in the call
+    const callInfo = activeCalls[userId];
+    if (callInfo) {
+      const otherUserId = callInfo.otherUserId;
+      
+      // Remove both users from active calls
+      delete activeCalls[userId];
+      delete activeCalls[otherUserId];
+      
+      console.log(`✅ Call state cleared for users ${userId} and ${otherUserId}`);
+      
+      // Notify the other user that call ended
+      const otherSocketId = userSockets[otherUserId];
+      if (otherSocketId) {
+        io.to(otherSocketId).emit('call_ended_by_other', {
+          userId,
+          roomName,
+        });
+      }
+    }
+  });
+  
+  // ============================================
+  // CALL DECLINED
+  // ============================================
+  socket.on('call_declined', (data) => {
+    const { callerId, receiverId, roomName } = data;
+    
+    console.log(`❌ Call declined by user ${receiverId}`);
+    
+    // Remove both users from active calls
+    delete activeCalls[callerId];
+    delete activeCalls[receiverId];
+    
+    console.log(`✅ Call state cleared after decline`);
+    
+    // Notify caller that call was declined
+    const callerSocketId = userSockets[callerId];
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call_declined_by_receiver', {
+        receiverId,
+        roomName,
+      });
+    }
+  });
+  
   // Disconnect
   socket.on('disconnect', () => {
     // Remove user from socket mapping
     for (const [userId, socketId] of Object.entries(userSockets)) {
       if (socketId === socket.id) {
         delete userSockets[userId];
+        
+        // If user was in a call, end it
+        if (activeCalls[userId]) {
+          const otherUserId = activeCalls[userId].otherUserId;
+          delete activeCalls[userId];
+          delete activeCalls[otherUserId];
+          
+          // Notify other user
+          const otherSocketId = userSockets[otherUserId];
+          if (otherSocketId) {
+            io.to(otherSocketId).emit('call_ended_by_other', {
+              userId,
+              reason: 'disconnect',
+            });
+          }
+          
+          console.log(`📴 Call ended due to disconnect of user ${userId}`);
+        }
+        
         console.log(`❌ User ${userId} disconnected`);
         break;
       }
