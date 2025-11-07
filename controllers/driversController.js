@@ -388,8 +388,8 @@ exports.createDriver = async (req, res) => {
           tokens: tokens
         };
 
-        await global.firebaseAdmin.messaging().sendMulticast(message);
-        console.log('Notification sent to admins about new driver registration');
+        await global.firebaseAdmin.messaging().sendEachForMulticast(message);
+        console.log('✅ Notification sent to admins about new driver registration');
 
         // Additionally, send to admin_notifications topic (optional)
         await global.firebaseAdmin.messaging().send({

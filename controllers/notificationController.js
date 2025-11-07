@@ -69,6 +69,11 @@ exports.sendNotification = async (req, res) => {
                 console.log(`📱 Fetching token for specific driver: ${driverId}`);
                 tokens = await getSpecificDriverToken(driverId);
                 console.log(`📱 Got ${tokens.length} token(s) for driver ${driverId}`);
+            } else if (recipientType.includes('@')) {
+                // Email address - fetch token by email
+                console.log(`📧 Fetching token for email: ${recipientType}`);
+                tokens = await getTokenByEmail(recipientType);
+                console.log(`📱 Got ${tokens.length} token(s) for ${recipientType}`);
             } else {
                 // Get tokens based on recipient group type
                 switch (recipientType) {
@@ -86,6 +91,9 @@ exports.sendNotification = async (req, res) => {
                         break;
                     case 'bus_managers':
                         tokens = await getBusManagerTokens();
+                        break;
+                    case 'admins':
+                        tokens = await getAdminTokens();
                         break;
                     default:
                         console.warn(`⚠️ Unknown recipient type: ${recipientType}`);
@@ -404,6 +412,44 @@ async function getSpecificDriverToken(driverId) {
         return tokens;
     } catch (error) {
         console.error(`Error getting token for driver ${driverId}:`, error);
+        return [];
+    }
+}
+
+// Get token by email (for drivers, users, etc.)
+async function getTokenByEmail(email) {
+    try {
+        const [rows] = await pool.query(
+            'SELECT fcm_token FROM users WHERE email = ? AND fcm_token IS NOT NULL AND fcm_token != \'\'',
+            [email]
+        );
+        
+        const tokens = rows.map(r => r.fcm_token).filter(Boolean);
+        if (tokens.length > 0) {
+            console.log(`✅ Found FCM token for email ${email}: ${tokens[0].substring(0, 20)}...`);
+        } else {
+            console.log(`❌ No FCM token found for email ${email}`);
+        }
+        return tokens;
+    } catch (error) {
+        console.error(`Error getting token for email ${email}:`, error);
+        return [];
+    }
+}
+
+// Get admin tokens
+async function getAdminTokens() {
+    try {
+        const [rows] = await pool.query(
+            "SELECT id, name, fcm_token FROM users WHERE fcm_token IS NOT NULL AND fcm_token != '' AND user_type = 'admin'"
+        );
+        console.log(`📱 getAdminTokens: Found ${rows.length} admins with tokens`);
+        rows.forEach(row => {
+            console.log(`   - Admin ${row.id} (${row.name}): ${row.fcm_token ? row.fcm_token.substring(0, 20) + '...' : 'No token'}`);
+        });
+        return rows.map(r => r.fcm_token).filter(Boolean);
+    } catch (error) {
+        console.error('Error getting admin tokens:', error);
         return [];
     }
 }
