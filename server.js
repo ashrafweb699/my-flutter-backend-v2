@@ -595,6 +595,72 @@ io.on('connection', (socket) => {
   });
   
   // ============================================
+  // WEBRTC SIGNALING - OFFER
+  // ============================================
+  socket.on('webrtc_offer', (data) => {
+    const { roomName, offer, callerId, receiverId } = data;
+    
+    console.log(`📡 WebRTC OFFER from user ${callerId} to ${receiverId} in room ${roomName}`);
+    
+    // Forward offer to receiver
+    const receiverSocketId = userSockets[receiverId];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('webrtc_offer', {
+        roomName,
+        offer,
+        callerId,
+      });
+      console.log(`✅ Offer forwarded to user ${receiverId}`);
+    } else {
+      console.log(`⚠️ Receiver ${receiverId} not connected`);
+    }
+  });
+  
+  // ============================================
+  // WEBRTC SIGNALING - ANSWER
+  // ============================================
+  socket.on('webrtc_answer', (data) => {
+    const { roomName, answer, receiverId, callerId } = data;
+    
+    console.log(`📡 WebRTC ANSWER from user ${receiverId} to ${callerId} in room ${roomName}`);
+    
+    // Forward answer to caller
+    const callerSocketId = userSockets[callerId];
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('webrtc_answer', {
+        roomName,
+        answer,
+        receiverId,
+      });
+      console.log(`✅ Answer forwarded to user ${callerId}`);
+    } else {
+      console.log(`⚠️ Caller ${callerId} not connected`);
+    }
+  });
+  
+  // ============================================
+  // WEBRTC SIGNALING - ICE CANDIDATE
+  // ============================================
+  socket.on('webrtc_ice_candidate', (data) => {
+    const { roomName, candidate, fromUserId, toUserId } = data;
+    
+    console.log(`🧊 ICE Candidate from user ${fromUserId} to ${toUserId} in room ${roomName}`);
+    
+    // Forward ICE candidate to the other user
+    const targetSocketId = userSockets[toUserId];
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('webrtc_ice_candidate', {
+        roomName,
+        candidate,
+        fromUserId,
+      });
+      console.log(`✅ ICE candidate forwarded to user ${toUserId}`);
+    } else {
+      console.log(`⚠️ Target user ${toUserId} not connected`);
+    }
+  });
+  
+  // ============================================
   // MESSAGE EDITED
   // ============================================
   socket.on('message_edited', (data) => {
