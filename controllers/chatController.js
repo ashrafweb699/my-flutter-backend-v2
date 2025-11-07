@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const admin = require('firebase-admin');
 
 /**
  * Get all conversations for a user
@@ -282,6 +283,72 @@ exports.sendMessage = async (req, res) => {
         message: messages[0],
         receiverId: receiverId
       });
+    }
+
+    // Send FCM notification to receiver
+    try {
+      // Get receiver's FCM token
+      const [receiverData] = await pool.query(
+        'SELECT fcm_token, name FROM users WHERE id = ?',
+        [receiverId]
+      );
+
+      if (receiverData.length > 0 && receiverData[0].fcm_token) {
+        const fcmToken = receiverData[0].fcm_token;
+        const senderName = req.user.name || 'Someone';
+        
+        // Prepare notification message
+        let notificationBody = messageText;
+        if (messageType === 'image') {
+          notificationBody = '📷 Sent a photo';
+        } else if (messageType === 'audio') {
+          notificationBody = '🎵 Sent a voice message';
+        } else if (messageType === 'video') {
+          notificationBody = '🎥 Sent a video';
+        } else if (messageType === 'document') {
+          notificationBody = '📄 Sent a document';
+        }
+
+        const fcmMessage = {
+          token: fcmToken,
+          notification: {
+            title: `${senderName}`,
+            body: notificationBody,
+          },
+          data: {
+            type: 'chat_message',
+            conversationId: conversationId.toString(),
+            senderId: userId.toString(),
+            messageId: messageId.toString(),
+            messageType: messageType,
+            click_action: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'chat_messages',
+              sound: 'default',
+              priority: 'high',
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+              },
+            },
+          },
+        };
+
+        await admin.messaging().send(fcmMessage);
+        console.log(`✅ FCM notification sent to user ${receiverId}`);
+      } else {
+        console.log(`⚠️ No FCM token found for user ${receiverId}`);
+      }
+    } catch (fcmError) {
+      console.error('❌ Error sending FCM notification:', fcmError);
+      // Don't fail the message send if notification fails
     }
 
     res.status(201).json({
