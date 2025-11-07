@@ -2,8 +2,13 @@ const { pool } = require('../config/db');
 
 exports.create = async (req, res) => {
   try {
-    const { service_name, sub_item_name, description, image_url, price, unit, min_quantity } = req.body;
-    if (!service_name || !sub_item_name || !unit) {
+    const { 
+      service_name, sub_item_name, description, image_url, 
+      price, unit, min_quantity,
+      available_time, rating, available_24_hours 
+    } = req.body;
+    
+    if (!service_name || !sub_item_name) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
     
@@ -18,9 +23,21 @@ exports.create = async (req, res) => {
     }
     
     const [r] = await pool.query(
-      `INSERT INTO service_items (service_name, sub_item_name, description, image_url, price, unit, min_quantity)
-       VALUES (?,?,?,?,?,?,?)`,
-      [service_name, sub_item_name, description || '', finalImageUrl, price || 0, unit, min_quantity || 1]
+      `INSERT INTO service_items 
+       (service_name, sub_item_name, description, image_url, price, unit, min_quantity, available_time, rating, available_24_hours)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [
+        service_name, 
+        sub_item_name, 
+        description || '', 
+        finalImageUrl, 
+        price || 0, 
+        unit || '', 
+        min_quantity || 0,
+        available_time || null,
+        rating || null,
+        available_24_hours || 0
+      ]
     );
     res.json({ id: r.insertId });
   } catch (e) {
@@ -57,7 +74,11 @@ exports.getOne = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const { service_name, sub_item_name, description, image_url, price, unit, min_quantity } = req.body;
+    const { 
+      service_name, sub_item_name, description, image_url, 
+      price, unit, min_quantity,
+      available_time, rating, available_24_hours 
+    } = req.body;
     
     // Handle image upload
     let finalImageUrl = image_url || '';
@@ -79,8 +100,23 @@ exports.update = async (req, res) => {
     }
     
     await pool.query(
-      `UPDATE service_items SET service_name=?, sub_item_name=?, description=?, image_url=?, price=?, unit=?, min_quantity=? WHERE id=?`,
-      [service_name, sub_item_name, description || '', finalImageUrl, price || 0, unit, min_quantity || 1, req.params.id]
+      `UPDATE service_items 
+       SET service_name=?, sub_item_name=?, description=?, image_url=?, price=?, unit=?, min_quantity=?,
+           available_time=?, rating=?, available_24_hours=?
+       WHERE id=?`,
+      [
+        service_name, 
+        sub_item_name, 
+        description || '', 
+        finalImageUrl, 
+        price || 0, 
+        unit || '', 
+        min_quantity || 0,
+        available_time || null,
+        rating || null,
+        available_24_hours || 0,
+        req.params.id
+      ]
     );
     res.json({ updated: true });
   } catch (e) {
