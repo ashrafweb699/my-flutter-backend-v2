@@ -69,7 +69,7 @@ exports.getByUser = async (req, res) => {
 
 exports.register = async (req, res) => {
   try {
-    const { full_name, email, mobile_number, cnic_front_image, cnic_back_image, password } = req.body;
+    const { full_name, email, mobile_number, cnic_front_image, cnic_back_image, password, fcm_token } = req.body;
     if (!full_name || !email || !mobile_number || !cnic_front_image || !cnic_back_image || !password) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
@@ -83,10 +83,17 @@ exports.register = async (req, res) => {
     } else {
       const hashed = await bcrypt.hash(password, 10);
       const [result] = await pool.query(
-        "INSERT INTO users (name, email, password, user_type) VALUES (?, ?, ?, 'd_boy')",
-        [full_name, email, hashed]
+        "INSERT INTO users (name, email, password, user_type, fcm_token) VALUES (?, ?, ?, 'd_boy', ?)",
+        [full_name, email, hashed, fcm_token || null]
       );
       userId = result.insertId;
+      console.log(`✅ Created delivery boy user ${userId} with FCM token: ${fcm_token ? fcm_token.substring(0, 20) + '...' : 'none'}`);
+    }
+    
+    // Update FCM token for existing user
+    if (existing.length && fcm_token) {
+      await pool.query("UPDATE users SET fcm_token = ? WHERE id = ?", [fcm_token, userId]);
+      console.log(`✅ Updated FCM token for existing delivery boy user ${userId}`);
     }
 
     // Insert delivery boy row
@@ -133,6 +140,42 @@ exports.updateApproval = async (req, res) => {
 
     const [rows] = await pool.query('SELECT * FROM delivery_boys WHERE id=?', [id]);
     if (!rows.length) return res.status(404).json({ message: 'Not found' });
+    
+    const dboy = rows[0];
+    
+    // ✅ If rejected, delete delivery boy and user records
+    if (approval === 'NO') {
+      console.log(`❌ Delivery boy ${id} rejected - deleting records`);
+      
+      // Get FCM token before deletion for notification
+      const [users] = await pool.query('SELECT id, fcm_token FROM users WHERE id=?', [dboy.user_id]);
+      const userFcmToken = users.length ? users[0].fcm_token : null;
+      
+      // Send rejection notification before deletion
+      if (userFcmToken && global.firebaseAdmin) {
+        try {
+          await global.firebaseAdmin.messaging().send({
+            token: userFcmToken,
+            notification: { title: 'Application Rejected', body: 'Afsos! Aap ka delivery boy application reject ho gaya hai. Admin se contact karein.' },
+            data: { type: 'delivery_boy_rejection', status: 'rejected' }
+          });
+          console.log(`✅ Sent rejection notification to delivery boy ${id}`);
+        } catch (notifError) {
+          console.error('Error sending rejection notification:', notifError);
+        }
+      }
+      
+      // Delete delivery boy record
+      await pool.query('DELETE FROM delivery_boys WHERE id = ?', [id]);
+      
+      // Delete user record
+      if (dboy.user_id) {
+        await pool.query('DELETE FROM users WHERE id = ?', [dboy.user_id]);
+        console.log(`✅ Deleted user ${dboy.user_id} from users table`);
+      }
+      
+      return res.json({ success: true, message: 'Delivery boy application rejected and records deleted', status: 'rejected' });
+    }
 
     await pool.query('UPDATE delivery_boys SET approval_status=? WHERE id=?', [status, id]);
 

@@ -102,6 +102,7 @@ exports.createShopkeeper = async (req, res) => {
       name,
       email,
       phone,
+      password,
       shop_name,
       shop_address,
       category,
@@ -109,8 +110,36 @@ exports.createShopkeeper = async (req, res) => {
       shop_image,
       cnic_front_image,
       cnic_back_image,
-      address
+      address,
+      fcm_token
     } = req.body;
+    
+    const bcrypt = require('bcryptjs');
+    
+    // Create or update user with user_type shopkeeper
+    let userId = user_id;
+    if (!userId) {
+      const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+      if (existing.length) {
+        userId = existing[0].id;
+        await pool.query("UPDATE users SET name=?, user_type='shopkeeper' WHERE id=?", [name, userId]);
+        if (fcm_token) {
+          await pool.query("UPDATE users SET fcm_token = ? WHERE id = ?", [fcm_token, userId]);
+          console.log(`✅ Updated FCM token for existing shopkeeper user ${userId}`);
+        }
+      } else {
+        const hashed = password ? await bcrypt.hash(password, 10) : null;
+        const [result] = await pool.query(
+          "INSERT INTO users (name, email, password, user_type, fcm_token) VALUES (?, ?, ?, 'shopkeeper', ?)",
+          [name, email, hashed, fcm_token || null]
+        );
+        userId = result.insertId;
+        console.log(`✅ Created shopkeeper user ${userId} with FCM token: ${fcm_token ? fcm_token.substring(0, 20) + '...' : 'none'}`);
+      }
+    } else if (fcm_token) {
+      await pool.query("UPDATE users SET fcm_token = ? WHERE id = ?", [fcm_token, userId]);
+      console.log(`✅ Updated FCM token for shopkeeper user ${userId}`);
+    }
     
     const [result] = await pool.query(`
       INSERT INTO shopkeepers (
@@ -119,7 +148,7 @@ exports.createShopkeeper = async (req, res) => {
         cnic_back_image, address, approval_status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `, [
-      user_id, name, email, phone, shop_name, shop_address,
+      userId, name, email, phone, shop_name, shop_address,
       category, profile_image, shop_image, cnic_front_image,
       cnic_back_image, address
     ]);
@@ -175,16 +204,63 @@ exports.updateShopkeeper = async (req, res) => {
 exports.updateShopkeeperApproval = async (req, res) => {
   try {
     const { approval_status } = req.body;
+    const id = req.params.id;
     
     if (!['pending', 'approved', 'rejected'].includes(approval_status)) {
       return res.status(400).json({ error: 'Invalid approval status' });
+    }
+    
+    // Get shopkeeper details
+    const [rows] = await pool.query('SELECT * FROM shopkeepers WHERE id = ?', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Shopkeeper not found' });
+    }
+    
+    const shopkeeper = rows[0];
+    
+    // ✅ If rejected, delete shopkeeper and user records
+    if (approval_status === 'rejected') {
+      console.log(`❌ Shopkeeper ${id} rejected - deleting records`);
+      
+      // Get FCM token before deletion for notification
+      const [users] = await pool.query('SELECT id, fcm_token FROM users WHERE id=?', [shopkeeper.user_id]);
+      const userFcmToken = users.length ? users[0].fcm_token : null;
+      
+      // Send rejection notification before deletion
+      if (userFcmToken && global.firebaseAdmin) {
+        try {
+          await global.firebaseAdmin.messaging().send({
+            token: userFcmToken,
+            notification: { title: 'Application Rejected', body: 'Afsos! Aap ka shopkeeper application reject ho gaya hai. Admin se contact karein.' },
+            data: { type: 'shopkeeper_rejection', status: 'rejected' }
+          });
+          console.log(`✅ Sent rejection notification to shopkeeper ${id}`);
+        } catch (notifError) {
+          console.error('Error sending rejection notification:', notifError);
+        }
+      }
+      
+      // Delete shopkeeper record
+      await pool.query('DELETE FROM shopkeepers WHERE id = ?', [id]);
+      
+      // Delete user record
+      if (shopkeeper.user_id) {
+        await pool.query('DELETE FROM users WHERE id = ?', [shopkeeper.user_id]);
+        console.log(`✅ Deleted user ${shopkeeper.user_id} from users table`);
+      }
+      
+      return res.json({ 
+        success: true,
+        message: 'Shopkeeper application rejected and records deleted',
+        approval_status: 'rejected'
+      });
     }
     
     await pool.query(`
       UPDATE shopkeepers 
       SET approval_status = ?, updated_at = NOW()
       WHERE id = ?
-    `, [approval_status, req.params.id]);
+    `, [approval_status, id]);
     
     res.json({ 
       message: 'Shopkeeper approval status updated successfully',

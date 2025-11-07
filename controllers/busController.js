@@ -12,7 +12,7 @@ function generateToken(userId, userType) {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, cnic, password, transport_name, bus_number } = req.body;
+    const { name, email, phone, cnic, password, transport_name, bus_number, fcm_token } = req.body;
     if (!name || !email || !phone || !password || !transport_name || !bus_number) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -24,10 +24,11 @@ exports.register = async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const [userResult] = await pool.query(
-      'INSERT INTO users (name, email, password, user_type) VALUES (?, ?, ?, ?)',
-      [name, email, hashed, 'bus_manager']
+      'INSERT INTO users (name, email, password, user_type, fcm_token) VALUES (?, ?, ?, ?, ?)',
+      [name, email, hashed, 'bus_manager', fcm_token || null]
     );
     const userId = userResult.insertId;
+    console.log(`✅ Created bus manager user ${userId} with FCM token: ${fcm_token ? fcm_token.substring(0, 20) + '...' : 'none'}`);
 
     // Build image URLs if files were uploaded
     const makeRel = (p) => {
@@ -206,6 +207,42 @@ exports.updateApproval = async (req, res) => {
 
     const [rows] = await pool.query('SELECT * FROM bus_managers WHERE id=?', [id]);
     if (!rows.length) return res.status(404).json({ message: 'Not found' });
+    
+    const bm = rows[0];
+    
+    // ✅ If rejected, delete bus manager and user records
+    if (approval === 'NO') {
+      console.log(`❌ Bus manager ${id} rejected - deleting records`);
+      
+      // Get FCM token before deletion for notification
+      const [users] = await pool.query('SELECT id, fcm_token FROM users WHERE id=?', [bm.user_id]);
+      const userFcmToken = users.length ? users[0].fcm_token : null;
+      
+      // Send rejection notification before deletion
+      if (userFcmToken && global.firebaseAdmin) {
+        try {
+          await global.firebaseAdmin.messaging().send({
+            token: userFcmToken,
+            notification: { title: 'Application Rejected', body: 'Afsos! Aap ka bus manager application reject ho gaya hai. Admin se contact karein.' },
+            data: { type: 'bus_manager_rejection', status: 'rejected' }
+          });
+          console.log(`✅ Sent rejection notification to bus manager ${id}`);
+        } catch (notifError) {
+          console.error('Error sending rejection notification:', notifError);
+        }
+      }
+      
+      // Delete bus manager record
+      await pool.query('DELETE FROM bus_managers WHERE id = ?', [id]);
+      
+      // Delete user record
+      if (bm.user_id) {
+        await pool.query('DELETE FROM users WHERE id = ?', [bm.user_id]);
+        console.log(`✅ Deleted user ${bm.user_id} from users table`);
+      }
+      
+      return res.json({ success: true, message: 'Bus manager application rejected and records deleted', status: 'rejected' });
+    }
 
     await pool.query('UPDATE bus_managers SET approval_status=? WHERE id=?', [status, id]);
 

@@ -127,7 +127,8 @@ exports.createDriver = async (req, res) => {
       current_latitude,
       current_longitude,
       rating,
-      approval = 'pending'
+      approval = 'pending',
+      fcm_token  // ✅ Add FCM token
     } = req.body;
     
     // Validate required fields
@@ -278,16 +279,24 @@ exports.createDriver = async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
       const userInsertQuery = `
         INSERT INTO users 
-        (name, email, password, user_type) 
-        VALUES (?, ?, ?, 'driver')
+        (name, email, password, user_type, fcm_token) 
+        VALUES (?, ?, ?, 'driver', ?)
       `;
       const insertResp = await pool.query(userInsertQuery, [
         name,
         email,
-        hashedPassword
+        hashedPassword,
+        fcm_token || null  // ✅ Insert FCM token
       ]);
       userResult = insertResp[0];
       userId = userResult.insertId;
+      console.log(`✅ Created new user ${userId} with FCM token: ${fcm_token ? fcm_token.substring(0, 20) + '...' : 'none'}`);
+    } else {
+      // Update FCM token for existing user
+      if (fcm_token) {
+        await pool.query("UPDATE users SET fcm_token = ? WHERE id = ?", [fcm_token, userId]);
+        console.log(`✅ Updated FCM token for existing user ${userId}: ${fcm_token.substring(0, 20)}...`);
+      }
     }
     
     // Then insert into drivers table
@@ -578,6 +587,48 @@ exports.updateDriverApproval = async (req, res) => {
       - Current database value: ${driver.approval_status}
     `);
     
+    // ✅ If rejected, delete driver and user records
+    if (approval === 'NO') {
+      console.log(`❌ Driver ${driverId} rejected - deleting records`);
+      
+      // Delete driver record
+      await pool.query('DELETE FROM drivers WHERE id = ?', [driverId]);
+      
+      // Delete user record if exists
+      if (driver.user_id) {
+        await pool.query('DELETE FROM users WHERE id = ?', [driver.user_id]);
+        console.log(`✅ Deleted user ${driver.user_id} from users table`);
+      }
+      
+      // Send rejection notification before deletion
+      try {
+        if (global.firebaseAdmin && userRow && userRow.fcm_token) {
+          await global.firebaseAdmin.messaging().send({
+            token: userRow.fcm_token,
+            notification: {
+              title: 'Application Rejected',
+              body: 'Afsos! Aap ka driver application reject ho gaya hai. Admin se contact karein.'
+            },
+            data: {
+              type: 'driver_rejection',
+              status: 'rejected',
+              driverId: String(driverId)
+            }
+          });
+          console.log(`✅ Sent rejection notification to driver ${driverId}`);
+        }
+      } catch (notifError) {
+        console.error('Error sending rejection notification:', notifError);
+      }
+      
+      return res.json({ 
+        success: true, 
+        message: 'Driver application rejected and records deleted',
+        approval: 'rejected'
+      });
+    }
+    
+    // Update the driver approval for approved/pending
     await pool.query(`
       UPDATE drivers
       SET approval_status = ? 
