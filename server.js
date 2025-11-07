@@ -209,6 +209,8 @@ app.use('/api', require('./routes/bus')(io));
 app.use('/api/team', require('./routes/teamRoutes'));
 // Chat/Messaging routes
 app.use('/api/chat', require('./routes/chat'));
+// Call notifications routes
+app.use('/api/call-notifications', require('./routes/callNotifications'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', upload.single('image'), async (req, res) => {
