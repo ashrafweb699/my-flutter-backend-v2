@@ -17,9 +17,16 @@ yarn-error.log*
 firebase-service-account.json
 *-firebase-adminsdk-*.json
 
-# Uploads directory (if you want to exclude uploaded files)
-uploads/*
-!uploads/.gitkeep
+# Uploads directory - Railway persistent storage handles this
+uploads/
+uploads/**/*
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.bmp
+*.svg
 
 # OS files
 .DS_Store

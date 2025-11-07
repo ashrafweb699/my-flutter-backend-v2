@@ -1,0 +1,283 @@
+# 🚂 Railway Paid Plan Setup Guide
+
+## ✅ Railway Paid Plan Benefits
+
+### Storage & Performance:
+- ✅ **Persistent Storage** - Files kabhi delete nahi hongi
+- ✅ **Singapore Server** - Pakistan ke liye fast (150-200ms latency)
+- ✅ **99.9% Uptime** - Reliable service
+- ✅ **10GB Storage** - Images aur files ke liye
+- ✅ **Auto Backups** - Data safe rahega
+
+### Cost:
+- 💰 **$5/month** = Rs. 1,500/month
+- 📊 **Unlimited Bandwidth** (fair use)
+- 🚀 **Better Performance** than free tier
+
+---
+
+## 🔧 Railway Dashboard Setup
+
+### Step 1: Upgrade to Paid Plan
+```
+1. Railway Dashboard → Settings
+2. Billing → Upgrade to Pro
+3. Payment Method → Add Card
+4. Region → Singapore (Asia)
+5. Confirm Upgrade
+```
+
+### Step 2: Environment Variables
+```bash
+# Railway Dashboard → Variables → Add:
+
+NODE_ENV=production
+PORT=3005
+
+# Database (Railway MySQL)
+DB_HOST=your-railway-mysql-host
+DB_USER=root
+DB_PASSWORD=your-password
+DB_NAME=railway
+DB_PORT=3306
+
+# Firebase Admin
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CLIENT_EMAIL=your-client-email
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# Cloudinary (Optional - for backup)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+
+# Upload Configuration
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE=10485760
+```
+
+---
+
+## 📁 File Upload Configuration
+
+### Current Setup (Railway Persistent Storage):
+
+**Backend handles:**
+- ✅ Image uploads to `/uploads` folder
+- ✅ Files persist after restart
+- ✅ Automatic folder creation
+- ✅ 10MB file size limit
+
+**Upload Endpoint:**
+```
+POST https://your-app.railway.app/upload
+Content-Type: multipart/form-data
+
+Body:
+- image: File
+- folder: "services" | "products" | "drivers" | "advertisements"
+- targetFolder: "services/subfolder" (optional)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "imageUrl": "https://your-app.railway.app/uploads/services/1234567890-image.jpg",
+  "relativePath": "uploads/services/1234567890-image.jpg",
+  "filename": "1234567890-image.jpg"
+}
+```
+
+---
+
+## 🗑️ GitHub Cleanup (Already Done)
+
+### Files Excluded from Git:
+```gitignore
+# Uploads directory - Railway handles this
+uploads/
+uploads/**/*
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.bmp
+*.svg
+```
+
+**Why?**
+- ❌ GitHub not for file storage
+- ✅ Railway persistent storage handles images
+- ✅ Smaller repository size
+- ✅ Faster deployments
+
+---
+
+## 🚀 Deployment Process
+
+### Automatic Deployment:
+```bash
+# Push to GitHub
+git add .
+git commit -m "Update backend"
+git push origin main
+
+# Railway automatically:
+1. Detects changes
+2. Builds new version
+3. Deploys to Singapore server
+4. Keeps uploads folder intact ✅
+```
+
+### Manual Deployment:
+```bash
+# Railway Dashboard → Deployments → Deploy Now
+```
+
+---
+
+## 📊 Monitoring & Maintenance
+
+### Check Storage Usage:
+```bash
+# Railway Dashboard → Metrics
+- Storage: X GB / 10 GB
+- Bandwidth: X GB
+- CPU Usage: X%
+- Memory: X MB
+```
+
+### Backup Strategy:
+```bash
+# Important images backup (optional)
+# Use Cloudinary or AWS S3 as secondary backup
+```
+
+---
+
+## 🔒 Security Best Practices
+
+### File Upload Security:
+- ✅ File type validation (images only)
+- ✅ File size limit (10MB)
+- ✅ Unique filenames (timestamp + random)
+- ✅ Folder structure validation
+
+### Database Security:
+- ✅ Environment variables for credentials
+- ✅ SQL injection prevention (parameterized queries)
+- ✅ HTTPS only connections
+
+---
+
+## 🎯 Testing Checklist
+
+### After Railway Upgrade:
+
+**1. Image Upload Test:**
+```bash
+✅ Upload service image
+✅ Upload product image
+✅ Upload driver profile image
+✅ Upload advertisement image
+```
+
+**2. Persistence Test:**
+```bash
+✅ Upload image
+✅ Restart Railway app
+✅ Check if image still accessible
+```
+
+**3. Performance Test:**
+```bash
+✅ Image load speed
+✅ API response time
+✅ Database query speed
+```
+
+---
+
+## 📱 Flutter App Configuration
+
+### No Changes Needed!
+
+**Current setup already works:**
+```dart
+// Images automatically load from Railway
+Image.network(
+  'https://your-app.railway.app/uploads/services/image.jpg',
+  fit: BoxFit.cover,
+)
+
+// Upload service already configured
+ImageUploadService.uploadImage(imageFile)
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### Issue: Images not loading
+```bash
+Solution:
+1. Check Railway logs
+2. Verify uploads folder exists
+3. Check file permissions
+4. Verify URL format
+```
+
+### Issue: Upload fails
+```bash
+Solution:
+1. Check file size (< 10MB)
+2. Check file type (images only)
+3. Check Railway storage limit
+4. Check server logs
+```
+
+### Issue: Files deleted after restart
+```bash
+Solution:
+1. Verify Railway paid plan active
+2. Check persistent storage enabled
+3. Contact Railway support
+```
+
+---
+
+## 📞 Support
+
+### Railway Support:
+- 📧 Email: support@railway.app
+- 💬 Discord: https://discord.gg/railway
+- 📚 Docs: https://docs.railway.app
+
+### Project Maintainer:
+- Check server logs for errors
+- Monitor Railway dashboard
+- Regular backups recommended
+
+---
+
+## ✅ Setup Complete!
+
+**Your app is now running on:**
+- 🚂 Railway Paid Plan ($5/month)
+- 🌏 Singapore Server (fast for Pakistan)
+- 💾 Persistent Storage (10GB)
+- 🔒 Secure & Reliable
+
+**Images will:**
+- ✅ Upload to Railway storage
+- ✅ Persist after restarts
+- ✅ Load fast for users
+- ✅ Stay safe and secure
+
+---
+
+**Last Updated:** November 2025
+**Railway Plan:** Pro ($5/month)
+**Region:** Singapore (Asia)
