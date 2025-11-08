@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
-const upload = require('./utils/upload');
+const { uploadService } = require('./config/cloudinary');
 const createDriverRegTable = require('./db/migrations/create_driver_reg_table');
 const createDriverLocationsTable = require('./db/migrations/create_driver_locations_table');
 const createDeliveryBoysTable = require('./db/migrations/create_delivery_boys_table');
@@ -213,7 +213,7 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/call-notifications', require('./routes/callNotifications'));
 
 // Dedicated upload endpoint for images
-app.post('/upload', upload.single('image'), async (req, res) => {
+app.post('/upload', uploadService.single('image'), async (req, res) => {
   try {
     console.log('Upload request received:');
     console.log('Request files:', req.files);
@@ -225,68 +225,19 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('File uploaded successfully:', req.file);
+    console.log('File uploaded successfully to Cloudinary:', req.file);
     
-    // Get the folder from request if provided (default to 'general')
-    const folder = req.body.folder || 'general';
+    // Cloudinary returns the full URL in req.file.path
+    const cloudinaryUrl = req.file.path;
     
-    // Get the target subfolder from request if provided
-    const targetFolder = req.body.targetFolder;
-    
-    // If this is for driver registration, validate the email before accepting the upload
-    if (folder === 'drivers' && targetFolder && targetFolder.includes('/')) {
-      const parts = targetFolder.split('/');
-      const driverId = parts[1]; // Format should be "drivers/123456/profile.jpg"
-      const email = req.body.email;
-      
-      if (email) {
-        try {
-          // Check if driver with this email already exists
-          const { pool } = require('./config/db');
-          const [existingDrivers] = await pool.query('SELECT d.*, u.email FROM drivers d JOIN users u ON d.user_id = u.id WHERE u.email = ?', [email]);
-          
-          if (existingDrivers.length > 0) {
-            // Email already exists, delete the uploaded file
-            const { deleteUploadedFiles } = require('./utils/file_cleanup');
-            await deleteUploadedFiles([req.file.path]);
-            
-            return res.status(409).json({ 
-              error: 'Email already registered',
-              exists: true,
-              approval: existingDrivers[0].approval_status,
-              message: `This email is already registered. Account status: ${existingDrivers[0].approval_status}`
-            });
-          }
-        } catch (error) {
-          console.error('Error checking driver email:', error);
-        }
-      }
-    }
-    
-    // Create the image URL - if file is in a subfolder, include it in the URL
-    const uploadPath = req.file.path.replace(/\\/g, '/'); // Convert Windows backslashes to forward slashes
-    let relativePath = uploadPath.replace('./uploads/', '').replace('uploads/', '');
-    
-    // Ensure the path includes the folder structure
-    // If relativePath doesn't start with the folder, prepend it
-    if (folder && folder !== 'general' && !relativePath.startsWith(folder + '/')) {
-      relativePath = `${folder}/${relativePath}`;
-    }
-    
-    const relativeFull = `uploads/${relativePath}`;
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${relativePath}`;
-    
-    console.log('Generated image URL:', imageUrl);
-    console.log('Relative path for database:', relativeFull);
+    console.log('✅ Cloudinary URL:', cloudinaryUrl);
     
     res.status(200).json({
       success: true,
-      imageUrl: relativeFull,  // Return relative path instead of full URL
-      filename: req.file.filename,
-      relativePath: relativePath,
-      relativeFull: relativeFull, // Include the full relative path for database storage
-      url: relativeFull, // Adding this for compatibility with driver registration
-      folder: folder
+      fileUrl: cloudinaryUrl,
+      imageUrl: cloudinaryUrl,
+      url: cloudinaryUrl,
+      message: 'File uploaded successfully to Cloudinary'
     });
   } catch (error) {
     console.error('Error in file upload:', error);
