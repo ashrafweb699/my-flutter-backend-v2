@@ -13,7 +13,7 @@ exports.getAllAdvertisements = async (req, res) => {
       id: row.id,
       title: row.title,
       description: row.description,
-      imageUrl: row.imageUrl ? `${req.protocol}://${req.get('host')}/uploads/${row.imageUrl}` : null,
+      imageUrl: row.imageUrl || null,
       link: row.link,
       isActive: row.active === 1,
       createdAt: row.created_at,
@@ -43,7 +43,7 @@ exports.getAdvertisementById = async (req, res) => {
       id: advertisement.id,
       title: advertisement.title,
       description: advertisement.description,
-      imageUrl: advertisement.imageUrl ? `${req.protocol}://${req.get('host')}/uploads/${advertisement.imageUrl}` : null,
+      imageUrl: advertisement.imageUrl || null,
       link: advertisement.link,
       createdAt: advertisement.created_at,
       updatedAt: advertisement.updated_at
@@ -66,8 +66,8 @@ exports.createAdvertisement = async (req, res) => {
       return res.status(400).json({ error: 'Title is required' });
     }
     
-    // Get the image URL from the uploaded file (if any)
-    const imageUrl = req.file ? req.file.filename : null;
+    // Get the image URL from Cloudinary (if any)
+    const imageUrl = req.file ? req.file.path : null;
     
     // Parse isActive (comes as string from multipart form)
     const active = isActive === '1' || isActive === 'true' || isActive === true ? 1 : 0;
@@ -83,7 +83,7 @@ exports.createAdvertisement = async (req, res) => {
       id: result.insertId,
       title,
       description,
-      imageUrl: imageUrl ? `${req.protocol}://${req.get('host')}/uploads/${imageUrl}` : null,
+      imageUrl: imageUrl || null,
       link,
       isActive: active === 1
     });
@@ -113,23 +113,12 @@ exports.updateAdvertisement = async (req, res) => {
     let finalImageUrl = existingAdvertisement.imageUrl;
     
     if (req.file) {
-      // If a new file was uploaded
-      finalImageUrl = req.file.filename;
-      console.log('Using newly uploaded file:', finalImageUrl);
+      // If a new file was uploaded to Cloudinary
+      finalImageUrl = req.file.path;
+      console.log('Using newly uploaded Cloudinary URL:', finalImageUrl);
     } else if (imageUrl && imageUrl !== existingAdvertisement.imageUrl && imageUrl.trim() !== '') {
       // If imageUrl was provided and is different from existing
-      // Check if it's a full URL or just a filename
-      if (imageUrl.includes('/uploads/')) {
-        // Extract just the filename if it's a full URL
-        const urlParts = imageUrl.split('/uploads/');
-        finalImageUrl = urlParts[urlParts.length - 1];
-      } else if (imageUrl.includes('://')) {
-        // Extract just the filename if it's a full URL
-        const urlParts = imageUrl.split('/');
-        finalImageUrl = urlParts[urlParts.length - 1];
-      } else {
-        finalImageUrl = imageUrl;
-      }
+      finalImageUrl = imageUrl;
       console.log('Using imageUrl from request:', finalImageUrl);
     }
     
@@ -158,7 +147,7 @@ exports.updateAdvertisement = async (req, res) => {
       id: advertisementId,
       title: title || existingAdvertisement.title,
       description: description !== undefined ? description : existingAdvertisement.description,
-      imageUrl: finalImageUrl ? `${req.protocol}://${req.get('host')}/uploads/${finalImageUrl}` : null,
+      imageUrl: finalImageUrl || null,
       link: link !== undefined ? link : existingAdvertisement.link,
       isActive: active === 1,
       updatedAt: new Date()

@@ -49,11 +49,22 @@ const productsStorage = new CloudinaryStorage({
   },
 });
 
+// Storage configuration for advertisements
+const advertisementsStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'gwadar-advertisements',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif'],
+    transformation: [{ width: 1200, height: 600, crop: 'limit' }]
+  },
+});
+
 // Create multer upload instances
 const uploadService = multer({ storage: servicesStorage });
 const uploadProfile = multer({ storage: profilesStorage });
 const uploadChat = multer({ storage: chatStorage });
 const uploadProduct = multer({ storage: productsStorage });
+const uploadAdvertisement = multer({ storage: advertisementsStorage });
 
 // Helper function to delete image from Cloudinary
 const deleteImage = async (publicId) => {
@@ -93,6 +104,7 @@ module.exports = {
   uploadProfile,
   uploadChat,
   uploadProduct,
+  uploadAdvertisement,
   deleteImage,
   getPublicIdFromUrl
 };
