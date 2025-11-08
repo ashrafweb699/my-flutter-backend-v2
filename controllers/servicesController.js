@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { deleteImage, getPublicIdFromUrl } = require('../config/cloudinary');
 
 // Get all services
 exports.getAllServices = async (req, res) => {
@@ -19,11 +20,11 @@ exports.getAllServices = async (req, res) => {
       if (row.image) {
         console.log(`Processing service ${row.id} (${row.service_name}): raw image path = "${row.image}"`);
         
-        // Make sure we're not adding /uploads/ to a path that already has it
+        // Check if it's already a Cloudinary URL or full URL
         if (row.image.startsWith('http')) {
           imageUrl = row.image;
         } else if (row.image.startsWith('uploads/')) {
-          // Already has uploads/ prefix, just add base URL
+          // Legacy local path - convert to base URL (for backward compatibility)
           imageUrl = `${req.protocol}://${req.get('host')}/${row.image}`;
         } else {
           imageUrl = `${req.protocol}://${req.get('host')}/uploads/${row.image}`;
@@ -67,11 +68,11 @@ exports.getServiceById = async (req, res) => {
     // Create a proper image URL if image exists
     let imageUrl = null;
     if (service.image) {
-      // Make sure we're not adding /uploads/ to a path that already has it
+      // Check if it's already a Cloudinary URL or full URL
       if (service.image.startsWith('http')) {
         imageUrl = service.image;
       } else if (service.image.startsWith('uploads/')) {
-        // Already has uploads/ prefix, just add base URL
+        // Legacy local path - convert to base URL (for backward compatibility)
         imageUrl = `${req.protocol}://${req.get('host')}/${service.image}`;
       } else {
         imageUrl = `${req.protocol}://${req.get('host')}/uploads/${service.image}`;
@@ -111,10 +112,9 @@ exports.createService = async (req, res) => {
     let finalImageUrl = 'placeholder.txt'; // Default to placeholder if no image
     
     if (req.file) {
-      // If file was uploaded through multer
-      // Always save with uploads/services/ prefix for consistency
-      finalImageUrl = `uploads/services/${req.file.filename}`;
-      console.log('Using uploaded file:', finalImageUrl);
+      // If file was uploaded through Cloudinary
+      finalImageUrl = req.file.path; // Cloudinary URL
+      console.log('Using Cloudinary uploaded file:', finalImageUrl);
     } else if (imageUrl && imageUrl.trim() !== '') {
       // If imageUrl was provided in the request body
       console.log('Processing provided imageUrl:', imageUrl);
@@ -220,13 +220,21 @@ exports.updateService = async (req, res) => {
     // Determine the image - prioritize uploaded file, then imageUrl or image from body, then existing image
     let finalImageUrl = existingService.image || 'placeholder.txt';
     let imageChanged = false;
+    let oldImageUrl = existingService.image;
     
     if (req.file) {
-      // If a new file was uploaded through multer
-      // Always save with uploads/services/ prefix for consistency
-      finalImageUrl = `uploads/services/${req.file.filename}`;
+      // If a new file was uploaded through Cloudinary
+      finalImageUrl = req.file.path; // Cloudinary URL
       imageChanged = true;
-      console.log('Using newly uploaded file:', finalImageUrl);
+      console.log('Using newly uploaded Cloudinary file:', finalImageUrl);
+      
+      // Delete old image from Cloudinary if it exists and is a Cloudinary URL
+      if (oldImageUrl && oldImageUrl.includes('cloudinary.com')) {
+        const publicId = getPublicIdFromUrl(oldImageUrl);
+        if (publicId) {
+          await deleteImage(publicId).catch(err => console.error('Failed to delete old image:', err));
+        }
+      }
     } else if (image && image.trim() !== '' && image !== existingService.image) {
       // If image field was provided in the request body
       finalImageUrl = image;
