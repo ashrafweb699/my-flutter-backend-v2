@@ -119,32 +119,30 @@ exports.createService = async (req, res) => {
       // If imageUrl was provided in the request body
       console.log('Processing provided imageUrl:', imageUrl);
       
-      // Extract just the filename if it's a full URL
-      if (imageUrl.includes('/uploads/')) {
-        // Extract just the filename if it's a full URL with /uploads/
+      // Check if it's a Cloudinary URL - keep it as-is
+      if (imageUrl.includes('cloudinary.com')) {
+        finalImageUrl = imageUrl;
+        console.log('✅ Using Cloudinary URL as-is:', finalImageUrl);
+      }
+      // Extract just the filename if it's a local URL with /uploads/
+      else if (imageUrl.includes('/uploads/')) {
         const urlParts = imageUrl.split('/uploads/');
         finalImageUrl = urlParts[urlParts.length - 1];
         console.log('Extracted filename from /uploads/ path:', finalImageUrl);
-      } else if (imageUrl.includes('://')) {
-        // Extract just the filename if it's a full URL with protocol
+      }
+      // If it's some other full URL (not Cloudinary), extract filename
+      else if (imageUrl.includes('://')) {
         const urlParts = imageUrl.split('/');
         finalImageUrl = urlParts[urlParts.length - 1];
         console.log('Extracted filename from full URL:', finalImageUrl);
-      } else {
-        // It might be just a filename or some other format
+      }
+      // It's just a filename or relative path
+      else {
         finalImageUrl = imageUrl;
         console.log('Using imageUrl as is:', finalImageUrl);
       }
       
-      // Clean up any query parameters or hash fragments
-      if (finalImageUrl.includes('?')) {
-        finalImageUrl = finalImageUrl.split('?')[0];
-      }
-      if (finalImageUrl.includes('#')) {
-        finalImageUrl = finalImageUrl.split('#')[0];
-      }
-      
-      console.log('Final image filename to save:', finalImageUrl);
+      console.log('Final image path to save:', finalImageUrl);
     } else {
       console.log('No image provided, using placeholder');
     }
@@ -245,32 +243,30 @@ exports.updateService = async (req, res) => {
       console.log('Processing provided imageUrl:', imageUrl);
       imageChanged = true;
       
-      // Check if it's a full URL or just a filename
-      if (imageUrl.includes('/uploads/')) {
-        // Extract just the filename if it's a full URL with /uploads/
+      // Check if it's a Cloudinary URL - keep it as-is
+      if (imageUrl.includes('cloudinary.com')) {
+        finalImageUrl = imageUrl;
+        console.log('✅ Using Cloudinary URL as-is:', finalImageUrl);
+      }
+      // Extract just the filename if it's a local URL with /uploads/
+      else if (imageUrl.includes('/uploads/')) {
         const urlParts = imageUrl.split('/uploads/');
         finalImageUrl = urlParts[urlParts.length - 1];
         console.log('Extracted filename from /uploads/ path:', finalImageUrl);
-      } else if (imageUrl.includes('://')) {
-        // Extract just the filename if it's a full URL with protocol
+      }
+      // If it's some other full URL (not Cloudinary), extract filename
+      else if (imageUrl.includes('://')) {
         const urlParts = imageUrl.split('/');
         finalImageUrl = urlParts[urlParts.length - 1];
         console.log('Extracted filename from full URL:', finalImageUrl);
-      } else {
-        // It might be just a filename or some other format
+      }
+      // It's just a filename or relative path
+      else {
         finalImageUrl = imageUrl;
         console.log('Using imageUrl as is:', finalImageUrl);
       }
       
-      // Clean up any query parameters or hash fragments
-      if (finalImageUrl.includes('?')) {
-        finalImageUrl = finalImageUrl.split('?')[0];
-      }
-      if (finalImageUrl.includes('#')) {
-        finalImageUrl = finalImageUrl.split('#')[0];
-      }
-      
-      console.log('Final image filename to save:', finalImageUrl);
+      console.log('Final image path to save:', finalImageUrl);
     } else {
       console.log('No new image provided, keeping existing image:', finalImageUrl);
     }
