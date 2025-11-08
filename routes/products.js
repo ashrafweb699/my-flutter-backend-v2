@@ -3,59 +3,8 @@ const router = express.Router();
 const { check } = require('express-validator');
 const productsController = require('../controllers/productsController');
 const productsCategoriesController = require('../controllers/productsCategoriesController');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { uploadProduct } = require('../config/cloudinary');
 const auth = require('../middleware/auth');
-
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads/products');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueFileName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueFileName);
-  }
-});
-
-// Configure multer upload
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    // More flexible file type checking
-    const allowedMimeTypes = [
-      'image/jpeg',
-      'image/jpg', 
-      'image/png',
-      'image/webp',
-      'image/gif',
-      'image/bmp'
-    ];
-    
-    const allowedExtensions = /\.(jpg|jpeg|png|webp|gif|bmp)$/i;
-    
-    // Check mimetype OR extension (more lenient)
-    const validMimeType = allowedMimeTypes.includes(file.mimetype.toLowerCase());
-    const validExtension = allowedExtensions.test(file.originalname.toLowerCase());
-    
-    if (validMimeType || validExtension) {
-      console.log(`✅ File accepted: ${file.originalname} (${file.mimetype})`);
-      return cb(null, true);
-    } else {
-      console.error(`❌ File rejected: ${file.originalname} (${file.mimetype})`);
-      cb(new Error(`Invalid file type. Allowed: jpeg, jpg, png, webp, gif, bmp. Got: ${file.mimetype}`));
-    }
-  }
-});
 
 // Validation for product category
 const validateProductCategory = [
@@ -101,56 +50,36 @@ const validateRating = [
 
 // ================ Product Categories Routes ================
 
-// POST upload image for product category
-// Using simpler approach without strict file filter for category images
-const categoryUpload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for categories
-});
-
-router.post('/categories/upload-image', (req, res) => {
-  console.log('📤 Upload request received');
+// POST upload image for product category - Using Cloudinary
+router.post('/categories/upload-image', uploadProduct.single('image'), (req, res) => {
+  console.log('📤 Category image upload request received');
   console.log('   Content-Type:', req.headers['content-type']);
   console.log('   File field name expected: image');
   
-  categoryUpload.single('image')(req, res, (err) => {
-    if (err) {
-      console.error('❌ Multer error:', err);
-      console.error('   Error stack:', err.stack);
-      return res.status(400).json({ 
-        error: 'Upload failed', 
-        message: err.message,
-        code: err.code 
-      });
+  try {
+    if (!req.file) {
+      console.error('❌ No file received in request');
+      return res.status(400).json({ error: 'No image file uploaded' });
     }
     
-    try {
-      if (!req.file) {
-        console.error('❌ No file received in request');
-        console.log('   Request body:', req.body);
-        console.log('   Request files:', req.files);
-        return res.status(400).json({ error: 'No image file uploaded' });
-      }
-      
-      // Return only the path (not full URL) - e.g. /uploads/products/abc-123.png
-      const imagePath = `/uploads/products/${req.file.filename}`;
-      
-      console.log('✅ Category image uploaded successfully:', imagePath);
-      console.log('   File details:', {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        filename: req.file.filename
-      });
-      
-      // Send back just the path as plain text (frontend will parse it)
-      res.status(200).send(imagePath);
-    } catch (error) {
-      console.error('❌ Error processing upload:', error);
-      console.error('   Error stack:', error.stack);
-      res.status(500).json({ error: 'Failed to process image', details: error.message });
-    }
-  });
+    // Return Cloudinary URL
+    const imageUrl = req.file.path;
+    
+    console.log('✅ Category image uploaded to Cloudinary:', imageUrl);
+    console.log('   File details:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      cloudinaryUrl: imageUrl
+    });
+    
+    // Send back the Cloudinary URL
+    res.status(200).send(imageUrl);
+  } catch (error) {
+    console.error('❌ Error processing upload:', error);
+    console.error('   Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to process image', details: error.message });
+  }
 });
 
 // GET all product categories
@@ -197,7 +126,7 @@ router.get('/:id', productsController.getProductById);
 router.post(
   '/',
   auth.adminAuth,
-  upload.single('image'),
+  uploadProduct.single('image'),
   validateProduct,
   productsController.createProduct
 );
@@ -206,7 +135,7 @@ router.post(
 router.put(
   '/:id',
   auth.adminAuth,
-  upload.single('image'),
+  uploadProduct.single('image'),
   validateProduct,
   productsController.updateProduct
 );
@@ -224,7 +153,7 @@ router.delete(
 router.post(
   '/:id/images',
   auth.adminAuth,
-  upload.single('image'),
+  uploadProduct.single('image'),
   productsController.addProductImage
 );
 

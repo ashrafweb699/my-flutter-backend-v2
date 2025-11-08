@@ -1,11 +1,6 @@
 const db = require('../db/connection');
 const { validationResult } = require('express-validator');
 const { formatErrorResponse } = require('../utils/responseFormatter');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
-const util = require('util');
-const unlinkAsync = util.promisify(fs.unlink);
 
 // Get products by category
 exports.getProductsByCategory = async (req, res) => {
@@ -233,7 +228,7 @@ exports.createProduct = async (req, res) => {
     // Process image upload if provided
     let imageUploaded = false;
     if (req.file) {
-      const imagePath = `/uploads/products/${req.file.filename}`;
+      const imagePath = req.file.path; // Cloudinary URL
       
       const [imageResult] = await connection.execute(
         'INSERT INTO product_images (product_id, image_url, is_primary) VALUES (?, ?, ?)',
@@ -311,7 +306,7 @@ exports.updateProduct = async (req, res) => {
     // Process image upload if provided
     let imageUploaded = false;
     if (req.file) {
-      const imagePath = `/uploads/products/${req.file.filename}`;
+      const imagePath = req.file.path; // Cloudinary URL
       
       // Check if there's already a primary image
       const [primaryImageCheck] = await connection.execute(
@@ -325,12 +320,7 @@ exports.updateProduct = async (req, res) => {
           'UPDATE product_images SET image_url = ? WHERE id = ?',
           [imagePath, primaryImageCheck[0].id]
         );
-        
-        // Delete old image file if it exists
-        const oldImagePath = path.join(__dirname, '..', primaryImageCheck[0].image_url);
-        if (fs.existsSync(oldImagePath)) {
-          await unlinkAsync(oldImagePath);
-        }
+        // Note: Old Cloudinary images can be deleted via Cloudinary API if needed
       } else {
         // Create new primary image
         await connection.execute(
@@ -382,19 +372,8 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
     
-    // Get product images to delete files
-    const [images] = await connection.execute(
-      'SELECT image_url FROM product_images WHERE product_id = ?',
-      [id]
-    );
-    
-    // Delete product images from filesystem
-    for (const image of images) {
-      const imagePath = path.join(__dirname, '..', image.image_url);
-      if (fs.existsSync(imagePath)) {
-        await unlinkAsync(imagePath);
-      }
-    }
+    // Note: Cloudinary images can be deleted via Cloudinary API if needed
+    // For now, just delete from database (cascades to images and ratings)
     
     // Delete product (cascades to images and ratings)
     await connection.execute('DELETE FROM products WHERE id = ?', [id]);
@@ -435,7 +414,7 @@ exports.addProductImage = async (req, res) => {
     }
     
     const isPrimary = is_primary === 'true' || is_primary === true;
-    const imagePath = `/uploads/products/${req.file.filename}`;
+    const imagePath = req.file.path;
     
     // If setting as primary, update existing primary images
     if (isPrimary) {
@@ -481,11 +460,7 @@ exports.deleteProductImage = async (req, res) => {
     
     const imageData = imageCheck[0];
     
-    // Delete image file
-    const imagePath = path.join(__dirname, '..', imageData.image_url);
-    if (fs.existsSync(imagePath)) {
-      await unlinkAsync(imagePath);
-    }
+    // Note: Cloudinary images can be deleted via Cloudinary API if needed
     
     // Delete image record
     await db.execute('DELETE FROM product_images WHERE id = ?', [imageId]);
