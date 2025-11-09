@@ -211,6 +211,8 @@ app.use('/api/team', require('./routes/teamRoutes'));
 app.use('/api/chat', require('./routes/chat'));
 // Call notifications routes
 app.use('/api/call-notifications', require('./routes/callNotifications'));
+// Proxy routes (for Cloudinary document downloads)
+app.use('/api/proxy', require('./routes/proxy'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', uploadService.single('image'), async (req, res) => {
