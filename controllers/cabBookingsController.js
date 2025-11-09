@@ -765,9 +765,15 @@ const cabBookingsController = {
           cb.created_at,
           cb.updated_at,
           cdo.proposed_fare as driver_offered_fare,
-          cdo.status as offer_status
+          cdo.status as offer_status,
+          d.vehicle_number,
+          d.vehicle_model,
+          u.name as driver_name,
+          d.mobile_number as driver_phone
          FROM cab_bookings cb
          LEFT JOIN cab_driver_offers cdo ON cb.id = cdo.booking_id AND cdo.driver_id = ?
+         LEFT JOIN drivers d ON cb.driver_id = d.id
+         LEFT JOIN users u ON d.user_id = u.id
          WHERE cb.driver_id = ? OR cdo.driver_id = ?
          ORDER BY cb.created_at DESC`,
         [driverId, driverId, driverId]
