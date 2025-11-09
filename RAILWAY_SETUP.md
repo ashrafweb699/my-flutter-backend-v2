@@ -32,29 +32,39 @@
 # Railway Dashboard → Variables → Add:
 
 NODE_ENV=production
-PORT=3005
+PORT=3000
 
 # Database (Railway MySQL)
-DB_HOST=your-railway-mysql-host
+DB_HOST=nozomi.proxy.rlwy.net
 DB_USER=root
-DB_PASSWORD=your-password
+DB_PASSWORD=ETHcerGPYmLeqpXUhBYmsvIQCrKWrBsF
 DB_NAME=railway
-DB_PORT=3306
+DB_PORT=38997
 
-# Firebase Admin
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=your-client-email
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# JWT Secret
+JWT_SECRET=gwadar_online_bazaar_secret_key_2024_railway_deployment
 
-# Cloudinary (Optional - for backup)
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
+# Client/Frontend URL (for CORS)
+CLIENT_URL=*
+
+# Cloudinary Configuration
+CLOUDINARY_CLOUD_NAME=dkowbbo0l
+CLOUDINARY_API_KEY=721575744532316
+CLOUDINARY_API_SECRET=HpKdq6-ejgVO_CWTag9nrq3nW1k
+
+# Google Maps API Key (⚠️ IMPORTANT - Add this!)
+GOOGLE_MAPS_API_KEY=AIzaSyCoTJ9EJLGBhI0wrSRRoppBsaEkbPpTjSA
 
 # Upload Configuration
 UPLOAD_DIR=./uploads
 MAX_FILE_SIZE=10485760
 ```
+
+### ⚠️ SECURITY WARNING:
+**DO NOT commit `.env.railway` file to GitHub!**
+- ✅ Added to `.gitignore`
+- ✅ Use Railway Dashboard Variables instead
+- ✅ Keep sensitive keys secure
 
 ---
 
