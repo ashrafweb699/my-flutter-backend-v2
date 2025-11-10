@@ -1,4 +1,4 @@
-const pool = require('../pool');
+const { pool } = require('../../config/db');
 
 /**
  * Migration: Create driver_statistics table

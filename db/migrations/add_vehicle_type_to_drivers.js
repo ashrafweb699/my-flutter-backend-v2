@@ -1,4 +1,4 @@
-const pool = require('../pool');
+const { pool } = require('../../config/db');
 
 /**
  * Migration: Add vehicle_type column to drivers table
@@ -8,12 +8,28 @@ async function up() {
   const connection = await pool.getConnection();
   
   try {
+    console.log('🔧 Checking if vehicle_type column exists...');
+    
+    // Check if column exists
+    const [columns] = await connection.query(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'drivers' 
+        AND COLUMN_NAME = 'vehicle_type'
+    `);
+    
+    if (columns.length > 0) {
+      console.log('⚠️ vehicle_type column already exists, skipping...');
+      return;
+    }
+    
     console.log('🔧 Adding vehicle_type column to drivers table...');
     
     // Add vehicle_type column
     await connection.query(`
       ALTER TABLE drivers 
-      ADD COLUMN IF NOT EXISTS vehicle_type VARCHAR(50) DEFAULT 'Car' AFTER vehicle_number
+      ADD COLUMN vehicle_type VARCHAR(50) DEFAULT 'Car' AFTER vehicle_number
     `);
     
     console.log('✅ vehicle_type column added successfully');

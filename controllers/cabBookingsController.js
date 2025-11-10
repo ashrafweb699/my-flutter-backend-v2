@@ -478,7 +478,8 @@ const cabBookingsController = {
           cb.*,
           u.name as driver_name,
           d.mobile_number as driver_phone,
-          d.vehicle_number
+          d.vehicle_number,
+          d.vehicle_type
          FROM cab_bookings cb
          LEFT JOIN drivers d ON cb.driver_id = d.id
          LEFT JOIN users u ON d.user_id = u.id
@@ -495,7 +496,8 @@ const cabBookingsController = {
               cdo.*,
               u.name as driver_name,
               d.mobile_number as driver_phone,
-              d.vehicle_number
+              d.vehicle_number,
+              d.vehicle_type
              FROM cab_driver_offers cdo
              JOIN drivers d ON cdo.driver_id = d.id
              JOIN users u ON d.user_id = u.id
@@ -798,6 +800,7 @@ const cabBookingsController = {
           cdo.proposed_fare as driver_offered_fare,
           cdo.status as offer_status,
           d.vehicle_number,
+          d.vehicle_type,
           u.name as driver_name,
           d.mobile_number as driver_phone
          FROM cab_bookings cb

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const path = require('path');
 
 /**
@@ -22,10 +23,16 @@ async function runMigrations() {
     console.log('✅ Migration 2 completed\n');
     
     console.log('🎉 All migrations completed successfully!');
+    
+    // Close database connection
+    const { pool } = require('./config/db');
+    await pool.end();
+    
     process.exit(0);
     
   } catch (error) {
     console.error('❌ Migration failed:', error);
+    console.error('Error details:', error.message);
     process.exit(1);
   }
 }
