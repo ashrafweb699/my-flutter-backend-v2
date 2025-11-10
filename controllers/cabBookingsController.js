@@ -449,7 +449,10 @@ const cabBookingsController = {
       const [bookings] = await db.execute(
         `SELECT 
           cb.*,
-          u.name as driver_name
+          u.name as driver_name,
+          d.mobile_number as driver_phone,
+          d.vehicle_number,
+          d.vehicle_type
          FROM cab_bookings cb
          LEFT JOIN drivers d ON cb.driver_id = d.id
          LEFT JOIN users u ON d.user_id = u.id
@@ -464,7 +467,10 @@ const cabBookingsController = {
           const [offers] = await db.execute(
             `SELECT 
               cdo.*,
-              u.name as driver_name
+              u.name as driver_name,
+              d.mobile_number as driver_phone,
+              d.vehicle_number,
+              d.vehicle_type
              FROM cab_driver_offers cdo
              JOIN drivers d ON cdo.driver_id = d.id
              JOIN users u ON d.user_id = u.id
