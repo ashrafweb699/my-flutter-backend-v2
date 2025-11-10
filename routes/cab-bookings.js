@@ -21,6 +21,9 @@ router.put('/start-journey', auth.protect, cabBookingsController.startJourney);
 // Complete journey
 router.put('/complete-journey', auth.protect, cabBookingsController.completeJourney);
 
+// Complete booking (alternative route for POST requests)
+router.post('/complete', auth.protect, cabBookingsController.completeJourney);
+
 // Get booking history for a user
 router.get('/user-history/:userId', auth.protect, cabBookingsController.getUserBookingHistory);
 
