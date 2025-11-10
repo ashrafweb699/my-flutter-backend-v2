@@ -343,6 +343,8 @@ const cabBookingsController = {
     try {
       const { booking_id, status } = req.body;
       
+      console.log(`🏁 Completing journey for booking ${booking_id}`);
+      
       // Update booking status
       await db.execute(
         `UPDATE cab_bookings 
@@ -351,14 +353,39 @@ const cabBookingsController = {
         [status, booking_id]
       );
       
-      // Get booking details
+      // Get booking details including fare
       const [bookingRows] = await db.execute(
-        `SELECT user_id, driver_id FROM cab_bookings WHERE id = ?`,
+        `SELECT user_id, driver_id, proposed_fare FROM cab_bookings WHERE id = ?`,
         [booking_id]
       );
       
       if (bookingRows.length > 0) {
-        const { user_id, driver_id } = bookingRows[0];
+        const { user_id, driver_id, proposed_fare } = bookingRows[0];
+        
+        // Update driver statistics
+        if (driver_id) {
+          console.log(`📊 Updating statistics for driver ${driver_id}`);
+          
+          try {
+            // Update or insert driver statistics
+            await db.execute(
+              `INSERT INTO driver_statistics 
+               (driver_id, total_bookings, completed_bookings, total_earnings, last_booking_date)
+               VALUES (?, 1, 1, ?, NOW())
+               ON DUPLICATE KEY UPDATE
+                 total_bookings = total_bookings + 1,
+                 completed_bookings = completed_bookings + 1,
+                 total_earnings = total_earnings + ?,
+                 last_booking_date = NOW()`,
+              [driver_id, proposed_fare || 0, proposed_fare || 0]
+            );
+            
+            console.log(`✅ Driver ${driver_id} statistics updated`);
+          } catch (statsError) {
+            console.error(`⚠️ Failed to update driver statistics:`, statsError);
+            // Don't fail the whole request if stats update fails
+          }
+        }
         
         // Get user FCM token to send rating request notification
         const [userRows] = await db.execute(
@@ -451,8 +478,7 @@ const cabBookingsController = {
           cb.*,
           u.name as driver_name,
           d.mobile_number as driver_phone,
-          d.vehicle_number,
-          d.vehicle_type
+          d.vehicle_number
          FROM cab_bookings cb
          LEFT JOIN drivers d ON cb.driver_id = d.id
          LEFT JOIN users u ON d.user_id = u.id
@@ -469,8 +495,7 @@ const cabBookingsController = {
               cdo.*,
               u.name as driver_name,
               d.mobile_number as driver_phone,
-              d.vehicle_number,
-              d.vehicle_type
+              d.vehicle_number
              FROM cab_driver_offers cdo
              JOIN drivers d ON cdo.driver_id = d.id
              JOIN users u ON d.user_id = u.id
@@ -773,7 +798,6 @@ const cabBookingsController = {
           cdo.proposed_fare as driver_offered_fare,
           cdo.status as offer_status,
           d.vehicle_number,
-          d.vehicle_type,
           u.name as driver_name,
           d.mobile_number as driver_phone
          FROM cab_bookings cb
@@ -845,7 +869,49 @@ const cabBookingsController = {
       console.error('❌ Error getting driver pending bookings:', error);
       res.status(500).json({ error: 'Failed to get driver pending bookings' });
     }
-  }
+  },
+  
+  // Get driver statistics
+  getDriverStatistics: async (req, res) => {
+    try {
+      const { driverId } = req.params;
+      
+      console.log(`📊 Fetching statistics for driver ${driverId}`);
+      
+      // Get driver statistics
+      const [stats] = await db.execute(
+        `SELECT * FROM driver_statistics WHERE driver_id = ?`,
+        [driverId]
+      );
+      
+      if (stats.length === 0) {
+        // Initialize statistics if not exists
+        await db.execute(
+          `INSERT INTO driver_statistics (driver_id) VALUES (?)`,
+          [driverId]
+        );
+        
+        return res.json({
+          driver_id: driverId,
+          total_bookings: 0,
+          completed_bookings: 0,
+          cancelled_bookings: 0,
+          total_earnings: 0,
+          total_distance: 0,
+          average_rating: 0,
+          total_ratings: 0,
+          last_booking_date: null
+        });
+      }
+      
+      console.log(`✅ Statistics fetched for driver ${driverId}`);
+      res.json(stats[0]);
+      
+    } catch (error) {
+      console.error('❌ Error getting driver statistics:', error);
+      res.status(500).json({ error: 'Failed to get driver statistics' });
+    }
+  },
 };
 
 module.exports = cabBookingsController;

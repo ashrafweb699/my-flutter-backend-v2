@@ -36,6 +36,9 @@ router.get('/driver-history/:driverId', cabBookingsController.getDriverBookingHi
 // Get pending bookings for a driver
 router.get('/driver-pending/:driverId', auth.protect, cabBookingsController.getDriverPendingBookings);
 
+// Get driver statistics (no auth - drivers access from profile)
+router.get('/driver-statistics/:driverId', cabBookingsController.getDriverStatistics);
+
 // Get booking details (no auth required - drivers need to access via notification)
 router.get('/:bookingId', cabBookingsController.getBookingDetails);
 
