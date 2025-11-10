@@ -12,6 +12,7 @@ const createCabBookingsTable = require('./db/migrations/create_cab_bookings_tabl
 const createCabDriverOffersTable = require('./db/migrations/create_cab_driver_offers_table');
 const createAuthTables = require('./db/migrations/create_auth_tables');
 const createUserProfileTable = require('./db/migrations/create_user_profile_table');
+const alterUserProfileImageColumn = require('./db/migrations/alter_user_profile_image_column');
 const createRatingsTable = require('./db/migrations/create_ratings_table');
 const createProductsTables = require('./db/migrations/create_products_tables');
 const createServiceItemsOrdersTables = require('./db/migrations/create_service_items_orders_tables');
@@ -149,6 +150,7 @@ async function runMigrations() {
     await createCabBookingsTable();
     await createCabDriverOffersTable();
     await createUserProfileTable();
+    await alterUserProfileImageColumn();
     await createDeliveryBoysTable();
     await createProductsTables();
     await createUserNotificationsTable();
@@ -213,6 +215,8 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/call-notifications', require('./routes/callNotifications'));
 // Proxy routes (for Cloudinary document downloads)
 app.use('/api/proxy', require('./routes/proxy'));
+// Agora token generation routes
+app.use('/api/agora', require('./routes/agora'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', uploadService.single('image'), async (req, res) => {

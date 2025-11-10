@@ -1,12 +1,26 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('../firebase-service-account.json');
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: 'https://gwadar-online-bazaar-default-rtdb.firebaseio.com'
-  });
+  // Use environment variable for credentials (Railway deployment)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: 'https://gwadar-online-bazaar-default-rtdb.firebaseio.com'
+    });
+  } else {
+    // Fallback to file (local development)
+    try {
+      const serviceAccount = require('../firebase-service-account.json');
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: 'https://gwadar-online-bazaar-default-rtdb.firebaseio.com'
+      });
+    } catch (err) {
+      console.warn('⚠️ Firebase service account not found. Push notifications disabled.');
+    }
+  }
 }
 
 /**
