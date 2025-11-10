@@ -12,7 +12,8 @@ const pool = mysql.createPool({
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  timezone: '+05:00' // Pakistan Standard Time (UTC+5)
 });
 
 // Test database connection
