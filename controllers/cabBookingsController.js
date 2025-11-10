@@ -362,11 +362,15 @@ const cabBookingsController = {
       if (bookingRows.length > 0) {
         const { user_id, driver_id, proposed_fare } = bookingRows[0];
         
+        console.log(`📋 Booking details - User: ${user_id}, Driver: ${driver_id}, Fare: ${proposed_fare}`);
+        
         // Update driver statistics
         if (driver_id) {
           console.log(`📊 Updating statistics for driver ${driver_id}`);
           
           try {
+            const fareAmount = proposed_fare ? parseFloat(proposed_fare) : 0;
+            
             // Update or insert driver statistics
             await db.execute(
               `INSERT INTO driver_statistics 
@@ -377,10 +381,10 @@ const cabBookingsController = {
                  completed_bookings = completed_bookings + 1,
                  total_earnings = total_earnings + ?,
                  last_booking_date = NOW()`,
-              [driver_id, proposed_fare || 0, proposed_fare || 0]
+              [driver_id, fareAmount, fareAmount]
             );
             
-            console.log(`✅ Driver ${driver_id} statistics updated`);
+            console.log(`✅ Driver ${driver_id} statistics updated with fare ${fareAmount}`);
           } catch (statsError) {
             console.error(`⚠️ Failed to update driver statistics:`, statsError);
             // Don't fail the whole request if stats update fails
@@ -388,41 +392,45 @@ const cabBookingsController = {
         }
         
         // Get user FCM token to send rating request notification
-        const [userRows] = await db.execute(
-          `SELECT fcm_token FROM users WHERE id = ?`,
-          [user_id]
-        );
-        
-        if (userRows.length > 0 && userRows[0].fcm_token) {
-          await sendNotification({
-            token: userRows[0].fcm_token,
-            title: 'Rate Your Ride',
-            body: 'Please rate your ride experience',
-            data: {
-              type: 'rate_driver',
-              booking_id: booking_id,
-              driver_id: driver_id
-            }
-          });
+        if (user_id) {
+          const [userRows] = await db.execute(
+            `SELECT fcm_token FROM users WHERE id = ?`,
+            [user_id]
+          );
+          
+          if (userRows.length > 0 && userRows[0].fcm_token) {
+            await sendNotification({
+              token: userRows[0].fcm_token,
+              title: 'Rate Your Ride',
+              body: 'Please rate your ride experience',
+              data: {
+                type: 'rate_driver',
+                booking_id: String(booking_id),
+                driver_id: String(driver_id || '')
+              }
+            });
+          }
         }
         
         // Get driver FCM token to send rating request notification
-        const [driverRows] = await db.execute(
-          `SELECT fcm_token FROM drivers WHERE id = ?`,
-          [driver_id]
-        );
+        if (driver_id) {
+          const [driverRows] = await db.execute(
+            `SELECT fcm_token FROM drivers WHERE id = ?`,
+            [driver_id]
+          );
         
-        if (driverRows.length > 0 && driverRows[0].fcm_token) {
-          await sendNotification({
-            token: driverRows[0].fcm_token,
-            title: 'Rate Your Passenger',
-            body: 'Please rate your passenger',
-            data: {
-              type: 'rate_passenger',
-              booking_id: booking_id,
-              user_id: user_id
-            }
-          });
+          if (driverRows.length > 0 && driverRows[0].fcm_token) {
+            await sendNotification({
+              token: driverRows[0].fcm_token,
+              title: 'Rate Your Passenger',
+              body: 'Please rate your passenger',
+              data: {
+                type: 'rate_passenger',
+                booking_id: String(booking_id),
+                user_id: String(user_id || '')
+              }
+            });
+          }
         }
       }
       
