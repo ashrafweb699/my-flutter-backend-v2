@@ -24,6 +24,10 @@ module.exports = (io) => {
   // Manager Bookings
   router.get('/bus/manager/:bus_manager_id/bookings', auth.userAuth, busCtrl.getBookingsByManager);
   router.patch('/bus/booking/:id/status', auth.userAuth, busCtrl.updateBookingStatus);
+  
+  // Manager Seat Management
+  router.post('/bus/manager/book-seats', auth.userAuth, busCtrl.bookSeatsForManager);
+  router.post('/bus/manager/cancel-seats', auth.userAuth, busCtrl.cancelSeatsForManager);
 
   // User side
   router.get('/bus/my/bookings', auth.userAuth, busCtrl.getBookingsByUser);

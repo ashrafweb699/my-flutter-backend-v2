@@ -537,3 +537,99 @@ exports.bookSeats = (io) => async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+// Bus Manager: Book seats directly (without user booking)
+exports.bookSeatsForManager = async (req, res) => {
+  try {
+    const { schedule_id, seats } = req.body;
+    
+    if (!schedule_id || !seats || !Array.isArray(seats) || seats.length === 0) {
+      return res.status(400).json({ success: false, message: 'Missing schedule_id or seats' });
+    }
+
+    console.log(`📋 Bus manager booking seats ${seats.join(', ')} for schedule ${schedule_id}`);
+
+    // Get schedule details
+    const [[schedule]] = await pool.query(
+      'SELECT * FROM bus_schedules WHERE id = ?',
+      [schedule_id]
+    );
+
+    if (!schedule) {
+      return res.status(404).json({ success: false, message: 'Schedule not found' });
+    }
+
+    // Check if seats are available
+    const [existingSeats] = await pool.query(
+      'SELECT seat_number FROM bus_seats WHERE schedule_id = ? AND seat_number IN (?) AND status = "booked"',
+      [schedule_id, seats]
+    );
+
+    if (existingSeats.length > 0) {
+      const bookedSeats = existingSeats.map(s => s.seat_number);
+      return res.status(400).json({ 
+        success: false, 
+        message: `Seats ${bookedSeats.join(', ')} are already booked` 
+      });
+    }
+
+    // Book the seats
+    for (const seatNo of seats) {
+      await pool.query(
+        `INSERT INTO bus_seats (schedule_id, seat_number, status, booked_by_manager)
+         VALUES (?, ?, 'booked', 1)
+         ON DUPLICATE KEY UPDATE status = 'booked', booked_by_manager = 1`,
+        [schedule_id, seatNo]
+      );
+    }
+
+    console.log(`✅ Bus manager booked seats ${seats.join(', ')} for schedule ${schedule_id}`);
+    return res.status(200).json({ success: true, message: 'Seats booked successfully' });
+  } catch (err) {
+    console.error('❌ bookSeatsForManager error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Bus Manager: Cancel seats directly
+exports.cancelSeatsForManager = async (req, res) => {
+  try {
+    const { schedule_id, seats } = req.body;
+    
+    if (!schedule_id || !seats || !Array.isArray(seats) || seats.length === 0) {
+      return res.status(400).json({ success: false, message: 'Missing schedule_id or seats' });
+    }
+
+    console.log(`📋 Bus manager cancelling seats ${seats.join(', ')} for schedule ${schedule_id}`);
+
+    // Cancel the seats (make them available)
+    const [result] = await pool.query(
+      `UPDATE bus_seats 
+       SET status = 'available', booked_by_manager = 0 
+       WHERE schedule_id = ? AND seat_number IN (?) AND status = 'booked'`,
+      [schedule_id, seats]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No booked seats found to cancel' 
+      });
+    }
+
+    // Also cancel any related bookings for these seats
+    await pool.query(
+      `UPDATE bus_bookings 
+       SET status = 'cancelled' 
+       WHERE schedule_id = ? 
+       AND JSON_CONTAINS(selected_seats, ?)`,
+      [schedule_id, JSON.stringify(seats)]
+    );
+
+    console.log(`✅ Bus manager cancelled seats ${seats.join(', ')} for schedule ${schedule_id}`);
+    return res.status(200).json({ success: true, message: 'Seats cancelled successfully' });
+  } catch (err) {
+    console.error('❌ cancelSeatsForManager error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
