@@ -39,6 +39,17 @@ const chatStorage = new CloudinaryStorage({
   },
 });
 
+// Storage configuration for chat documents (PDFs, DOCs, etc.)
+const chatDocumentsStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'chat/documents',
+    allowed_formats: ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx'],
+    resource_type: 'raw', // Important for non-image files
+    access_mode: 'public', // Make documents publicly accessible
+  },
+});
+
 // Storage configuration for products
 const productsStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -63,6 +74,7 @@ const advertisementsStorage = new CloudinaryStorage({
 const uploadService = multer({ storage: servicesStorage });
 const uploadProfile = multer({ storage: profilesStorage });
 const uploadChat = multer({ storage: chatStorage });
+const uploadChatDocument = multer({ storage: chatDocumentsStorage });
 const uploadProduct = multer({ storage: productsStorage });
 const uploadAdvertisement = multer({ storage: advertisementsStorage });
 
@@ -103,6 +115,7 @@ module.exports = {
   uploadService,
   uploadProfile,
   uploadChat,
+  uploadChatDocument,
   uploadProduct,
   uploadAdvertisement,
   deleteImage,

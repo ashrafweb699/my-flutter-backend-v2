@@ -576,9 +576,9 @@ exports.bookSeatsForManager = async (req, res) => {
     // Book the seats
     for (const seatNo of seats) {
       await pool.query(
-        `INSERT INTO bus_seats (schedule_id, seat_number, status, booked_by_manager)
+        `INSERT INTO bus_seats (schedule_id, seat_number, status, booked_by)
          VALUES (?, ?, 'booked', 1)
-         ON DUPLICATE KEY UPDATE status = 'booked', booked_by_manager = 1`,
+         ON DUPLICATE KEY UPDATE status = 'booked', booked_by = 1`,
         [schedule_id, seatNo]
       );
     }
@@ -605,7 +605,7 @@ exports.cancelSeatsForManager = async (req, res) => {
     // Cancel the seats (make them available)
     const [result] = await pool.query(
       `UPDATE bus_seats 
-       SET status = 'available', booked_by_manager = 0 
+       SET status = 'available', booked_by = 0 
        WHERE schedule_id = ? AND seat_number IN (?) AND status = 'booked'`,
       [schedule_id, seats]
     );
@@ -618,13 +618,22 @@ exports.cancelSeatsForManager = async (req, res) => {
     }
 
     // Also cancel any related bookings for these seats
-    await pool.query(
-      `UPDATE bus_bookings 
-       SET status = 'cancelled' 
-       WHERE schedule_id = ? 
-       AND JSON_CONTAINS(selected_seats, ?)`,
-      [schedule_id, JSON.stringify(seats)]
-    );
+    // Since selected_seats is TEXT, we need to check each seat individually
+    for (const seatNo of seats) {
+      await pool.query(
+        `UPDATE bus_bookings 
+         SET status = 'cancelled' 
+         WHERE schedule_id = ? 
+         AND (selected_seats LIKE ? OR selected_seats LIKE ? OR selected_seats LIKE ? OR selected_seats = ?)`,
+        [
+          schedule_id,
+          `%,${seatNo},%`,  // Middle: [1,2,3]
+          `[${seatNo},%`,   // Start: [2,3,4]
+          `%,${seatNo}]`,   // End: [1,2,3]
+          `[${seatNo}]`     // Only: [2]
+        ]
+      );
+    }
 
     console.log(`✅ Bus manager cancelled seats ${seats.join(', ')} for schedule ${schedule_id}`);
     return res.status(200).json({ success: true, message: 'Seats cancelled successfully' });

@@ -217,6 +217,8 @@ app.use('/api/call-notifications', require('./routes/callNotifications'));
 app.use('/api/proxy', require('./routes/proxy'));
 // Agora token generation routes
 app.use('/api/agora', require('./routes/agora'));
+// Service Units routes
+app.use('/api/service', require('./routes/serviceUnits'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', uploadService.single('image'), async (req, res) => {
