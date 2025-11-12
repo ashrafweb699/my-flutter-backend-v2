@@ -11,9 +11,9 @@ exports.create = async (req, res) => {
     // Resolve service name from ID if provided
     let finalServiceName = service_name;
     if (!finalServiceName && service_id) {
-      const [s] = await pool.query('SELECT name FROM services WHERE id = ?', [service_id]);
+      const [s] = await pool.query('SELECT service_name FROM services WHERE id = ?', [service_id]);
       if (s.length) {
-        finalServiceName = s[0].name;
+        finalServiceName = s[0].service_name;
       }
     }
 
@@ -60,8 +60,8 @@ exports.list = async (req, res) => {
     const { service_name, service_id } = req.query;
     let finalServiceName = service_name;
     if (service_id) {
-      const [s] = await pool.query('SELECT name FROM services WHERE id = ?', [service_id]);
-      if (s.length) finalServiceName = s[0].name;
+      const [s] = await pool.query('SELECT service_name FROM services WHERE id = ?', [service_id]);
+      if (s.length) finalServiceName = s[0].service_name;
     }
     const q = finalServiceName
       ? `SELECT * FROM service_items WHERE service_name = ? ORDER BY id DESC`
@@ -97,8 +97,8 @@ exports.update = async (req, res) => {
     // Resolve service name if only ID provided
     let finalServiceName = service_name;
     if (!finalServiceName && service_id) {
-      const [s] = await pool.query('SELECT name FROM services WHERE id = ?', [service_id]);
-      if (s.length) finalServiceName = s[0].name;
+      const [s] = await pool.query('SELECT service_name FROM services WHERE id = ?', [service_id]);
+      if (s.length) finalServiceName = s[0].service_name;
     }
 
     // Handle image upload
