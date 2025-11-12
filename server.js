@@ -137,6 +137,19 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Graceful handling for missing uploads: redirect to placeholder if file not found
+app.use('/uploads', (req, res, next) => {
+  const requested = req.path.replace(/^[\/]+/, '');
+  const filePath = path.join(__dirname, 'uploads', requested);
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      // Redirect to a generic placeholder image to avoid broken UI
+      return res.redirect('https://via.placeholder.com/600x400?text=Image+not+found');
+    }
+    return next();
+  });
+});
+
 // Serve static files from uploads directory
 // This ensures images are accessible via /uploads/filename.jpg
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
