@@ -93,14 +93,14 @@ exports.completeJourney = async (req, res) => {
     // Reset all seats to available
     await connection.query(
       `UPDATE bus_seats 
-      SET status = 'available', booked_by = NULL, updated_at = NOW() 
+      SET status = 'available', booked_by = NULL 
       WHERE schedule_id = ?`,
       [schedule_id]
     );
 
     // Update schedule available_seats count
     await connection.query(
-      'UPDATE bus_schedules SET available_seats = 45, updated_at = NOW() WHERE id = ?',
+      'UPDATE bus_schedules SET available_seats = 45 WHERE id = ?',
       [schedule_id]
     );
 
