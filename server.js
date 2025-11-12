@@ -23,7 +23,6 @@ const createChatTables = require('./db/migrations/create_chat_tables');
 const createServiceUnitsTable = require('./db/migrations/create_service_units_table');
 const createOrderStatisticsTable = require('./db/migrations/create_order_statistics_table');
 const createJourneyRecordsTable = require('./db/migrations/create_journey_records_table');
-const alterServiceItemsAddServiceId = require('./db/migrations/alter_service_items_add_service_id');
 
 // Load environment variables
 dotenv.config();
@@ -181,10 +180,6 @@ async function runMigrations() {
     if (typeof createJourneyRecordsTable === 'function') {
       await createJourneyRecordsTable.up();
       console.log('Journey records table check/creation completed');
-    }
-    if (typeof alterServiceItemsAddServiceId === 'function') {
-      await alterServiceItemsAddServiceId();
-      console.log('Service items service_id migration completed');
     }
     
     console.log('All migrations completed successfully');

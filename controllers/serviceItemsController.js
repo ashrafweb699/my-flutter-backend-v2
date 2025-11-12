@@ -3,23 +3,22 @@ const { pool } = require('../config/db');
 exports.create = async (req, res) => {
   try {
     const { 
-      service_id, service_name, sub_item_name, description, image_url, 
+      service_name, service_id, sub_item_name, description, image_url, 
       price, unit, min_quantity,
       available_time, rating, available_24_hours 
     } = req.body;
     
-    // Prefer service_id, but fallback to service_name for backward compatibility
-    let finalServiceId = service_id;
-    if (!finalServiceId && service_name) {
-      // Find service_id from service_name
-      const [services] = await pool.query('SELECT id FROM services WHERE service_name = ? LIMIT 1', [service_name]);
-      if (services.length > 0) {
-        finalServiceId = services[0].id;
+    // Resolve service name from ID if provided
+    let finalServiceName = service_name;
+    if (!finalServiceName && service_id) {
+      const [s] = await pool.query('SELECT name FROM services WHERE id = ?', [service_id]);
+      if (s.length) {
+        finalServiceName = s[0].name;
       }
     }
-    
-    if (!finalServiceId || !sub_item_name) {
-      return res.status(400).json({ message: 'Missing required fields (service_id or service_name, and sub_item_name)' });
+
+    if (!finalServiceName || !sub_item_name) {
+      return res.status(400).json({ message: 'Missing required fields' });
     }
     
     // Handle image upload
@@ -34,11 +33,10 @@ exports.create = async (req, res) => {
     
     const [r] = await pool.query(
       `INSERT INTO service_items 
-       (service_id, service_name, sub_item_name, description, image_url, price, unit, min_quantity, available_time, rating, available_24_hours)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+       (service_name, sub_item_name, description, image_url, price, unit, min_quantity, available_time, rating, available_24_hours)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
       [
-        finalServiceId,
-        service_name || null, // Keep for backward compatibility
+        finalServiceName, 
         sub_item_name, 
         description || '', 
         finalImageUrl, 
@@ -59,34 +57,16 @@ exports.create = async (req, res) => {
 
 exports.list = async (req, res) => {
   try {
-    const { service_id, service_name } = req.query;
-    
-    let q, params;
+    const { service_name, service_id } = req.query;
+    let finalServiceName = service_name;
     if (service_id) {
-      // Filter by service_id (preferred)
-      q = `SELECT si.*, s.service_name 
-           FROM service_items si 
-           LEFT JOIN services s ON si.service_id = s.id 
-           WHERE si.service_id = ? 
-           ORDER BY si.id DESC`;
-      params = [service_id];
-    } else if (service_name) {
-      // Filter by service_name (backward compatibility)
-      q = `SELECT si.*, s.service_name 
-           FROM service_items si 
-           LEFT JOIN services s ON si.service_id = s.id 
-           WHERE s.service_name = ? 
-           ORDER BY si.id DESC`;
-      params = [service_name];
-    } else {
-      // Get all items
-      q = `SELECT si.*, s.service_name 
-           FROM service_items si 
-           LEFT JOIN services s ON si.service_id = s.id 
-           ORDER BY si.id DESC`;
-      params = [];
+      const [s] = await pool.query('SELECT name FROM services WHERE id = ?', [service_id]);
+      if (s.length) finalServiceName = s[0].name;
     }
-    
+    const q = finalServiceName
+      ? `SELECT * FROM service_items WHERE service_name = ? ORDER BY id DESC`
+      : `SELECT * FROM service_items ORDER BY id DESC`;
+    const params = finalServiceName ? [finalServiceName] : [];
     const [rows] = await pool.query(q, params);
     res.json({ items: rows });
   } catch (e) {
@@ -109,21 +89,18 @@ exports.getOne = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { 
-      service_id, service_name, sub_item_name, description, image_url, 
+      service_name, service_id, sub_item_name, description, image_url, 
       price, unit, min_quantity,
       available_time, rating, available_24_hours 
     } = req.body;
     
-    // Prefer service_id, but fallback to service_name for backward compatibility
-    let finalServiceId = service_id;
-    if (!finalServiceId && service_name) {
-      // Find service_id from service_name
-      const [services] = await pool.query('SELECT id FROM services WHERE service_name = ? LIMIT 1', [service_name]);
-      if (services.length > 0) {
-        finalServiceId = services[0].id;
-      }
+    // Resolve service name if only ID provided
+    let finalServiceName = service_name;
+    if (!finalServiceName && service_id) {
+      const [s] = await pool.query('SELECT name FROM services WHERE id = ?', [service_id]);
+      if (s.length) finalServiceName = s[0].name;
     }
-    
+
     // Handle image upload
     let finalImageUrl = image_url || '';
     if (req.file) {
@@ -145,12 +122,11 @@ exports.update = async (req, res) => {
     
     await pool.query(
       `UPDATE service_items 
-       SET service_id=?, service_name=?, sub_item_name=?, description=?, image_url=?, price=?, unit=?, min_quantity=?,
+       SET service_name=?, sub_item_name=?, description=?, image_url=?, price=?, unit=?, min_quantity=?,
            available_time=?, rating=?, available_24_hours=?
        WHERE id=?`,
       [
-        finalServiceId,
-        service_name || null, // Keep for backward compatibility
+        finalServiceName, 
         sub_item_name, 
         description || '', 
         finalImageUrl, 
