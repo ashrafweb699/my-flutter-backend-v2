@@ -20,6 +20,9 @@ const createUserNotificationsTable = require('./db/migrations/create_user_notifi
 const createBusManagerTables = require('./db/migrations/create_bus_manager_tables');
 const createShopkeeperTables = require('./db/migrations/create_shopkeeper_tables');
 const createChatTables = require('./db/migrations/create_chat_tables');
+const createServiceUnitsTable = require('./db/migrations/create_service_units_table');
+const createOrderStatisticsTable = require('./db/migrations/create_order_statistics_table');
+const createJourneyRecordsTable = require('./db/migrations/create_journey_records_table');
 
 // Load environment variables
 dotenv.config();
@@ -166,6 +169,18 @@ async function runMigrations() {
       await createChatTables();
       console.log('Chat tables check/creation completed');
     }
+    if (typeof createServiceUnitsTable === 'function') {
+      await createServiceUnitsTable.up();
+      console.log('Service units table check/creation completed');
+    }
+    if (typeof createOrderStatisticsTable === 'function') {
+      await createOrderStatisticsTable.up();
+      console.log('Order statistics table check/creation completed');
+    }
+    if (typeof createJourneyRecordsTable === 'function') {
+      await createJourneyRecordsTable.up();
+      console.log('Journey records table check/creation completed');
+    }
     
     console.log('All migrations completed successfully');
   } catch (error) {
@@ -219,6 +234,8 @@ app.use('/api/proxy', require('./routes/proxy'));
 app.use('/api/agora', require('./routes/agora'));
 // Service Units routes
 app.use('/api/service', require('./routes/serviceUnits'));
+// Journey Records routes
+app.use('/api/journey-records', require('./routes/journeyRecords'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', uploadService.single('image'), async (req, res) => {

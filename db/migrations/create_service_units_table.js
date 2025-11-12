@@ -1,4 +1,4 @@
-const pool = require('../../config/db');
+const { pool } = require('../../config/db');
 
 async function up() {
   const connection = await pool.getConnection();
@@ -9,30 +9,37 @@ async function up() {
       CREATE TABLE IF NOT EXISTS service_units (
         id INT AUTO_INCREMENT PRIMARY KEY,
         unit_name VARCHAR(50) NOT NULL UNIQUE,
-        is_active BOOLEAN DEFAULT TRUE,
-        display_order INT DEFAULT 0,
+        unit_symbol VARCHAR(10) NOT NULL,
+        is_active TINYINT(1) DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_active (is_active),
-        INDEX idx_order (display_order)
+        INDEX idx_unit_name (unit_name)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     
     console.log('✅ service_units table created');
     
-    // Insert default units
+    // Insert default units with symbols
     console.log('📦 Inserting default units...');
     
     const defaultUnits = [
-      'KG', 'Piece', 'Plate', 'Bundle', 'Packet', 'Liter', 
-      'Bottle', 'Can', 'Ticket', 'Room', 'Day', 'Hour', 
-      'Ride', 'Service', 'Package', 'Box', 'Person'
+      { name: 'Kilogram', symbol: 'KG' },
+      { name: 'Piece', symbol: 'Pcs' },
+      { name: 'Liter', symbol: 'L' },
+      { name: 'Meter', symbol: 'M' },
+      { name: 'Box', symbol: 'Box' },
+      { name: 'Dozen', symbol: 'Dzn' },
+      { name: 'Pack', symbol: 'Pack' },
+      { name: 'Hour', symbol: 'Hr' },
+      { name: 'Day', symbol: 'Day' },
+      { name: 'Month', symbol: 'Month' }
     ];
     
-    for (let i = 0; i < defaultUnits.length; i++) {
+    for (const unit of defaultUnits) {
       await connection.query(
-        `INSERT IGNORE INTO service_units (unit_name, display_order) VALUES (?, ?)`,
-        [defaultUnits[i], i + 1]
+        `INSERT IGNORE INTO service_units (unit_name, unit_symbol) VALUES (?, ?)`,
+        [unit.name, unit.symbol]
       );
     }
     

@@ -20,6 +20,8 @@ module.exports = (io) => {
   router.post('/bus/schedule/add', auth.userAuth, busCtrl.addSchedule(io));
   router.get('/bus/schedule/:bus_manager_id', auth.userAuth, busCtrl.getSchedules);
   router.get('/bus/schedule/:schedule_id/seats', auth.userAuth, busCtrl.getSeats);
+  router.put('/bus/schedule/:schedule_id', auth.userAuth, busCtrl.updateSchedule);
+  router.delete('/bus/schedule/:schedule_id', auth.userAuth, busCtrl.deleteSchedule);
 
   // Manager Bookings
   router.get('/bus/manager/:bus_manager_id/bookings', auth.userAuth, busCtrl.getBookingsByManager);

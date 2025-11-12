@@ -164,11 +164,11 @@ exports.createNotification = async (req, res) => {
 exports.updateOrderStatus = async (req, res, io) => {
   try {
     const { orderId } = req.params;
-    const { status, reason, changedBy } = req.body;
+    const { status, reason, changedBy, performedByUserId, performedByUserType } = req.body;
     
-    // Get current status
+    // Get current order details
     const [currentOrder] = await pool.query(
-      'SELECT status FROM orders WHERE id = ?',
+      'SELECT status, totalAmount FROM orders WHERE id = ?',
       [orderId]
     );
     
@@ -177,6 +177,7 @@ exports.updateOrderStatus = async (req, res, io) => {
     }
     
     const oldStatus = currentOrder[0].status;
+    const orderAmount = currentOrder[0].totalAmount || 0;
     
     // Update order status
     await pool.query(
@@ -196,6 +197,30 @@ exports.updateOrderStatus = async (req, res, io) => {
       [status, orderId]
     );
     
+    // Record in order_statistics if action is trackable
+    const trackableActions = ['accepted', 'rejected', 'delivered', 'cancelled'];
+    if (trackableActions.includes(status) && performedByUserId) {
+      try {
+        // Get user name
+        const [user] = await pool.query(
+          'SELECT name FROM users WHERE id = ?',
+          [performedByUserId]
+        );
+        const userName = user.length > 0 ? user[0].name : 'Unknown';
+        
+        await pool.query(`
+          INSERT INTO order_statistics 
+          (order_id, action_type, performed_by_user_id, performed_by_user_type, performed_by_name, order_total_amount, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [orderId, status, performedByUserId, performedByUserType || 'admin', userName, orderAmount, reason]);
+        
+        console.log(`✅ Order statistics recorded: Order #${orderId} ${status} by ${userName} (${performedByUserType})`);
+      } catch (statsError) {
+        console.error('⚠️ Failed to record order statistics:', statsError);
+        // Don't fail the whole request if statistics recording fails
+      }
+    }
+    
     // Create notification for user
     const [order] = await pool.query(
       'SELECT userId FROM orders WHERE id = ?',
@@ -209,7 +234,9 @@ exports.updateOrderStatus = async (req, res, io) => {
         'preparing': 'Your order is being prepared.',
         'out_for_delivery': 'Your order is out for delivery.',
         'delivered': 'Your order has been delivered successfully.',
-        'cancelled': 'Your order has been cancelled.'
+        'cancelled': 'Your order has been cancelled.',
+        'accepted': 'Your order has been accepted and is being prepared.',
+        'rejected': 'Your order has been rejected.'
       };
       
       await pool.query(`

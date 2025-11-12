@@ -1,10 +1,10 @@
-const pool = require('../config/db');
+const { pool } = require('../config/db');
 
 // Get all service units
 exports.getServiceUnits = async (req, res) => {
   try {
     const [units] = await pool.query(
-      'SELECT * FROM service_units WHERE is_active = 1 ORDER BY display_order ASC, unit_name ASC'
+      'SELECT * FROM service_units WHERE is_active = 1 ORDER BY unit_name ASC'
     );
     
     res.json({
@@ -24,7 +24,7 @@ exports.getServiceUnits = async (req, res) => {
 exports.getAllServiceUnits = async (req, res) => {
   try {
     const [units] = await pool.query(
-      'SELECT * FROM service_units ORDER BY display_order ASC, unit_name ASC'
+      'SELECT * FROM service_units ORDER BY unit_name ASC'
     );
     
     res.json({
@@ -43,12 +43,12 @@ exports.getAllServiceUnits = async (req, res) => {
 // Create new service unit
 exports.createServiceUnit = async (req, res) => {
   try {
-    const { unit_name, is_active, display_order } = req.body;
+    const { unit_name, unit_symbol, is_active } = req.body;
     
-    if (!unit_name) {
+    if (!unit_name || !unit_symbol) {
       return res.status(400).json({
         success: false,
-        message: 'Unit name is required'
+        message: 'Unit name and symbol are required'
       });
     }
     
@@ -66,8 +66,8 @@ exports.createServiceUnit = async (req, res) => {
     }
     
     const [result] = await pool.query(
-      'INSERT INTO service_units (unit_name, is_active, display_order) VALUES (?, ?, ?)',
-      [unit_name, is_active !== false, display_order || 0]
+      'INSERT INTO service_units (unit_name, unit_symbol, is_active) VALUES (?, ?, ?)',
+      [unit_name, unit_symbol, is_active !== false ? 1 : 0]
     );
     
     res.json({
@@ -88,12 +88,12 @@ exports.createServiceUnit = async (req, res) => {
 exports.updateServiceUnit = async (req, res) => {
   try {
     const { id } = req.params;
-    const { unit_name, is_active, display_order } = req.body;
+    const { unit_name, unit_symbol, is_active } = req.body;
     
-    if (!unit_name) {
+    if (!unit_name || !unit_symbol) {
       return res.status(400).json({
         success: false,
-        message: 'Unit name is required'
+        message: 'Unit name and symbol are required'
       });
     }
     
@@ -124,8 +124,8 @@ exports.updateServiceUnit = async (req, res) => {
     }
     
     await pool.query(
-      'UPDATE service_units SET unit_name = ?, is_active = ?, display_order = ? WHERE id = ?',
-      [unit_name, is_active !== false, display_order || 0, id]
+      'UPDATE service_units SET unit_name = ?, unit_symbol = ?, is_active = ? WHERE id = ?',
+      [unit_name, unit_symbol, is_active !== false ? 1 : 0, id]
     );
     
     res.json({

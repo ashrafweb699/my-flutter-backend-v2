@@ -271,15 +271,17 @@ exports.updateApproval = async (req, res) => {
 
 exports.addSchedule = (io) => async (req, res) => {
   try {
-    const { bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats } = req.body;
+    const { bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats, available_today } = req.body;
     if (!bus_manager_id || !bus_number || !route_from || !route_to || !timing) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
+    const availableToday = available_today === 1 || available_today === '1' || available_today === true ? 1 : 0;
+
     const [result] = await pool.query(
-      `INSERT INTO bus_schedules (bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate || 0, available_seats || 45]
+      `INSERT INTO bus_schedules (bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats, available_today)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate || 0, available_seats || 45, availableToday]
     );
     const scheduleId = result.insertId;
 
@@ -639,6 +641,62 @@ exports.cancelSeatsForManager = async (req, res) => {
     return res.status(200).json({ success: true, message: 'Seats cancelled successfully' });
   } catch (err) {
     console.error('❌ cancelSeatsForManager error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Update schedule
+exports.updateSchedule = async (req, res) => {
+  try {
+    const { schedule_id } = req.params;
+    const { bus_number, route_from, route_to, timing, per_seat_rate, available_today } = req.body;
+
+    const availableToday = available_today === 1 || available_today === '1' || available_today === true ? 1 : 0;
+
+    await pool.query(
+      `UPDATE bus_schedules 
+      SET bus_number = ?, route_from = ?, route_to = ?, timing = ?, 
+          per_seat_rate = ?, available_today = ?, updated_at = NOW() 
+      WHERE id = ?`,
+      [bus_number, route_from, route_to, timing, per_seat_rate || 0, availableToday, schedule_id]
+    );
+
+    console.log(`✅ Schedule ${schedule_id} updated`);
+    return res.json({ success: true, message: 'Schedule updated successfully' });
+  } catch (err) {
+    console.error('❌ updateSchedule error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Delete schedule
+exports.deleteSchedule = async (req, res) => {
+  try {
+    const { schedule_id } = req.params;
+
+    // Check if there are any bookings for this schedule
+    const [bookings] = await pool.query(
+      'SELECT COUNT(*) as count FROM bus_bookings WHERE schedule_id = ?',
+      [schedule_id]
+    );
+
+    if (bookings[0].count > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete schedule with existing bookings. Please cancel all bookings first.' 
+      });
+    }
+
+    // Delete seats first (foreign key constraint)
+    await pool.query('DELETE FROM bus_seats WHERE schedule_id = ?', [schedule_id]);
+
+    // Delete schedule
+    await pool.query('DELETE FROM bus_schedules WHERE id = ?', [schedule_id]);
+
+    console.log(`✅ Schedule ${schedule_id} deleted`);
+    return res.json({ success: true, message: 'Schedule deleted successfully' });
+  } catch (err) {
+    console.error('❌ deleteSchedule error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
