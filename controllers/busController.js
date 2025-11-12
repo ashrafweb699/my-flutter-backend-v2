@@ -652,7 +652,7 @@ exports.updateSchedule = async (req, res) => {
     await pool.query(
       `UPDATE bus_schedules 
       SET bus_number = ?, route_from = ?, route_to = ?, timing = ?, 
-          per_seat_rate = ?, updated_at = NOW() 
+          per_seat_rate = ? 
       WHERE id = ?`,
       [bus_number, route_from, route_to, timing, per_seat_rate || 0, schedule_id]
     );
