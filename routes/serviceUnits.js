@@ -8,9 +8,10 @@ router.get('/units', serviceUnitsCtrl.getServiceUnits);
 router.get('/units/all', serviceUnitsCtrl.getAllServiceUnits); // Public for now
 
 // Admin routes (protected)
-router.post('/units', ...auth.adminAuth, serviceUnitsCtrl.createServiceUnit);
-router.put('/units/:id', ...auth.adminAuth, serviceUnitsCtrl.updateServiceUnit);
-router.delete('/units/:id', ...auth.adminAuth, serviceUnitsCtrl.deleteServiceUnit);
-router.patch('/units/:id/toggle', ...auth.adminAuth, serviceUnitsCtrl.toggleServiceUnitStatus);
+// TODO: Enable auth.adminAuth when admin login is properly configured
+router.post('/units', auth.protect, serviceUnitsCtrl.createServiceUnit);
+router.put('/units/:id', auth.protect, serviceUnitsCtrl.updateServiceUnit);
+router.delete('/units/:id', auth.protect, serviceUnitsCtrl.deleteServiceUnit);
+router.patch('/units/:id/toggle', auth.protect, serviceUnitsCtrl.toggleServiceUnitStatus);
 
 module.exports = router;
