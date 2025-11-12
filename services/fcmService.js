@@ -159,9 +159,16 @@ async function sendOrderNotificationToAdmin(order) {
   const message = `Order #${order.id} - Rs ${order.totalAmount} from ${order.customer_name || 'Customer'}`;
   
   const data = {
-    orderId: order.id.toString(),
-    orderAmount: order.totalAmount.toString(),
-    customerName: order.customer_name || '',
+    // Explicit navigation hints for mobile app
+    type: 'new_order',
+    route: 'admin_orders',
+    entity: 'order',
+    order_id: order.id?.toString?.() || String(order.id),
+
+    // Legacy/extra fields
+    orderId: order.id?.toString?.() || String(order.id),
+    orderAmount: (order.totalAmount ?? order.total_amount ?? '').toString(),
+    customerName: order.customer_name || order.userName || '',
   };
   
   return await sendAdminNotification(title, message, data);

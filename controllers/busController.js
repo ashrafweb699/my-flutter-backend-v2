@@ -271,17 +271,15 @@ exports.updateApproval = async (req, res) => {
 
 exports.addSchedule = (io) => async (req, res) => {
   try {
-    const { bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats, available_today } = req.body;
+    const { bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats } = req.body;
     if (!bus_manager_id || !bus_number || !route_from || !route_to || !timing) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    const availableToday = available_today === 1 || available_today === '1' || available_today === true ? 1 : 0;
-
     const [result] = await pool.query(
-      `INSERT INTO bus_schedules (bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats, available_today)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate || 0, available_seats || 45, availableToday]
+      `INSERT INTO bus_schedules (bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate, available_seats)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [bus_manager_id, bus_number, route_from, route_to, timing, per_seat_rate || 0, available_seats || 45]
     );
     const scheduleId = result.insertId;
 
@@ -649,16 +647,14 @@ exports.cancelSeatsForManager = async (req, res) => {
 exports.updateSchedule = async (req, res) => {
   try {
     const { schedule_id } = req.params;
-    const { bus_number, route_from, route_to, timing, per_seat_rate, available_today } = req.body;
-
-    const availableToday = available_today === 1 || available_today === '1' || available_today === true ? 1 : 0;
+    const { bus_number, route_from, route_to, timing, per_seat_rate } = req.body;
 
     await pool.query(
       `UPDATE bus_schedules 
       SET bus_number = ?, route_from = ?, route_to = ?, timing = ?, 
-          per_seat_rate = ?, available_today = ?, updated_at = NOW() 
+          per_seat_rate = ?, updated_at = NOW() 
       WHERE id = ?`,
-      [bus_number, route_from, route_to, timing, per_seat_rate || 0, availableToday, schedule_id]
+      [bus_number, route_from, route_to, timing, per_seat_rate || 0, schedule_id]
     );
 
     console.log(`✅ Schedule ${schedule_id} updated`);
