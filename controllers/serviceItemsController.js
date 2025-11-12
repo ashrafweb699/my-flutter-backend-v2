@@ -63,12 +63,47 @@ exports.list = async (req, res) => {
       const [s] = await pool.query('SELECT service_name FROM services WHERE id = ?', [service_id]);
       if (s.length) finalServiceName = s[0].service_name;
     }
-    const q = finalServiceName
-      ? `SELECT * FROM service_items WHERE service_name = ? ORDER BY id DESC`
-      : `SELECT * FROM service_items ORDER BY id DESC`;
-    const params = finalServiceName ? [finalServiceName] : [];
-    const [rows] = await pool.query(q, params);
-    res.json({ items: rows });
+
+    // If no filter provided, return all
+    if (!finalServiceName) {
+      const [allRows] = await pool.query(`SELECT * FROM service_items ORDER BY id DESC`);
+      return res.json({ items: allRows });
+    }
+
+    // 1) Exact match with TRIM/LOWER
+    const name = String(finalServiceName).trim();
+    const [rowsExact] = await pool.query(
+      `SELECT * FROM service_items WHERE LOWER(TRIM(service_name)) = LOWER(TRIM(?)) ORDER BY id DESC`,
+      [name]
+    );
+    if (rowsExact.length) return res.json({ items: rowsExact });
+
+    // 2) Try plural/singular alternatives
+    const lower = name.toLowerCase();
+    const singular = lower.endsWith('s') ? lower.slice(0, -1) : lower;
+    const plural = lower.endsWith('s') ? lower : `${lower}s`;
+    const [rowsAlt] = await pool.query(
+      `SELECT * FROM service_items WHERE LOWER(TRIM(service_name)) IN (?, ?) ORDER BY id DESC`,
+      [singular, plural]
+    );
+    if (rowsAlt.length) return res.json({ items: rowsAlt });
+
+    // 3) LIKE-based token search (handles names like "Fresh Vegetables & Fruits")
+    const tokens = lower
+      .split(/\s*&\s*|\s+and\s+|\s*,\s*|\s+/)
+      .filter(t => t && t.length >= 3);
+    if (tokens.length) {
+      const likeClauses = tokens.map(() => 'LOWER(service_name) LIKE ?').join(' OR ');
+      const likeParams = tokens.map(t => `%${t}%`);
+      const [rowsLike] = await pool.query(
+        `SELECT * FROM service_items WHERE ${likeClauses} ORDER BY id DESC`,
+        likeParams
+      );
+      if (rowsLike.length) return res.json({ items: rowsLike });
+    }
+
+    // Nothing found
+    return res.json({ items: [] });
   } catch (e) {
     console.error('serviceItems.list error', e);
     res.status(500).json({ message: 'Server error' });
