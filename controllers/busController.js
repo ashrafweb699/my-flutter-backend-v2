@@ -669,6 +669,7 @@ exports.updateSchedule = async (req, res) => {
 exports.deleteSchedule = async (req, res) => {
   try {
     const { schedule_id } = req.params;
+    const force = (req.query.force === 'true') || (req.body && (req.body.force === true || req.body.force === 'true'));
 
     // Check if there are any bookings for this schedule
     const [bookings] = await pool.query(
@@ -676,11 +677,16 @@ exports.deleteSchedule = async (req, res) => {
       [schedule_id]
     );
 
-    if (bookings[0].count > 0) {
+    if (bookings[0].count > 0 && !force) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Cannot delete schedule with existing bookings. Please cancel all bookings first.' 
+        message: 'Cannot delete schedule with existing bookings. Use force=true to delete all related bookings.' 
       });
+    }
+
+    if (force) {
+      // Delete related bookings first
+      await pool.query('DELETE FROM bus_bookings WHERE schedule_id = ?', [schedule_id]);
     }
 
     // Delete seats first (foreign key constraint)
