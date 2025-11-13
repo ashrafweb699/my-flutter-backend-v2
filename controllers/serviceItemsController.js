@@ -99,6 +99,14 @@ exports.list = async (req, res) => {
     if (service_id) {
       const [s] = await pool.query('SELECT service_name FROM services WHERE id = ?', [service_id]);
       if (s.length) finalServiceName = s[0].service_name;
+      // STRICT: If service_id provided, do exact match only and return
+      if (finalServiceName) {
+        const [rowsExactById] = await pool.query(
+          `SELECT * FROM service_items WHERE LOWER(TRIM(service_name)) = LOWER(TRIM(?)) ORDER BY id DESC`,
+          [String(finalServiceName).trim()]
+        );
+        return res.json({ items: rowsExactById });
+      }
     }
 
     // If no filter provided, return all
@@ -130,8 +138,9 @@ exports.list = async (req, res) => {
       .split(/\s*&\s*|\s+and\s+|\s*,\s*|\s+/)
       .filter(t => t && t.length >= 3);
     if (tokens.length) {
-      const likeClauses = tokens.map(() => 'LOWER(service_name) LIKE ?').join(' OR ');
-      const likeParams = tokens.map(t => `%${t}%`);
+      // Use REGEXP word boundaries to avoid matching 'food' inside 'seafood'
+      const likeClauses = tokens.map(() => `LOWER(service_name) REGEXP ?`).join(' OR ');
+      const likeParams = tokens.map(t => `(^|[^a-z])${t}([^a-z]|$)`);
       const [rowsLike] = await pool.query(
         `SELECT * FROM service_items WHERE ${likeClauses} ORDER BY id DESC`,
         likeParams
