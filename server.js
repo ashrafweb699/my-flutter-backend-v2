@@ -23,6 +23,7 @@ const createChatTables = require('./db/migrations/create_chat_tables');
 const createServiceUnitsTable = require('./db/migrations/create_service_units_table');
 const createOrderStatisticsTable = require('./db/migrations/create_order_statistics_table');
 const createJourneyRecordsTable = require('./db/migrations/create_journey_records_table');
+const createSMSGatewayTables = require('./db/migrations/create_sms_gateway_tables');
 
 // Load environment variables
 dotenv.config();
@@ -194,6 +195,10 @@ async function runMigrations() {
       await createJourneyRecordsTable.up();
       console.log('Journey records table check/creation completed');
     }
+    if (typeof createSMSGatewayTables === 'function') {
+      await createSMSGatewayTables();
+      console.log('SMS Gateway tables check/creation completed');
+    }
     
     console.log('All migrations completed successfully');
   } catch (error) {
@@ -241,6 +246,8 @@ app.use('/api/team', require('./routes/teamRoutes'));
 app.use('/api/chat', require('./routes/chat'));
 // Call notifications routes
 app.use('/api/call-notifications', require('./routes/callNotifications'));
+// SMS Gateway routes (OTP outbox, payment SMS ingest)
+app.use('/api/gateway', require('./routes/gateway'));
 // Proxy routes (for Cloudinary document downloads)
 app.use('/api/proxy', require('./routes/proxy'));
 // Agora token generation routes
