@@ -10,11 +10,16 @@ exports.create = async (req, res) => {
     
     // Resolve service name from ID if provided
     let finalServiceName = service_name;
+    let finalServiceId = service_id || null;
     if (!finalServiceName && service_id) {
       const [s] = await pool.query('SELECT service_name FROM services WHERE id = ?', [service_id]);
       if (s.length) {
         finalServiceName = s[0].service_name;
       }
+    }
+    if (!finalServiceId && finalServiceName) {
+      const [sid] = await pool.query('SELECT id FROM services WHERE LOWER(TRIM(service_name)) = LOWER(TRIM(?)) LIMIT 1', [finalServiceName]);
+      if (sid.length) finalServiceId = sid[0].id;
     }
 
     if (!finalServiceName || !sub_item_name) {
@@ -31,23 +36,55 @@ exports.create = async (req, res) => {
       console.log('📝 Using provided image URL:', image_url);
     }
     
-    const [r] = await pool.query(
-      `INSERT INTO service_items 
-       (service_name, sub_item_name, description, image_url, price, unit, min_quantity, available_time, rating, available_24_hours)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      [
-        finalServiceName, 
-        sub_item_name, 
-        description || '', 
-        finalImageUrl, 
-        price || 0, 
-        unit || '', 
-        min_quantity || 0,
-        available_time || null,
-        rating || null,
-        available_24_hours || 0
-      ]
-    );
+    // Detect if service_id column exists
+    let hasServiceId = false;
+    try {
+      const [cols] = await pool.query(`SHOW COLUMNS FROM service_items LIKE 'service_id'`);
+      hasServiceId = cols.length > 0;
+    } catch (_) {}
+
+    let r;
+    if (hasServiceId) {
+      if (!finalServiceId) {
+        return res.status(400).json({ message: 'service_id required (or valid service_name to resolve id)' });
+      }
+      [r] = await pool.query(
+        `INSERT INTO service_items 
+         (service_id, service_name, sub_item_name, description, image_url, price, unit, min_quantity, available_time, rating, available_24_hours)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          finalServiceId,
+          finalServiceName, 
+          sub_item_name, 
+          description || '', 
+          finalImageUrl, 
+          price || 0, 
+          unit || '', 
+          min_quantity || 0,
+          available_time || null,
+          rating || null,
+          available_24_hours || 0
+        ]
+      );
+    } else {
+      [r] = await pool.query(
+        `INSERT INTO service_items 
+         (service_name, sub_item_name, description, image_url, price, unit, min_quantity, available_time, rating, available_24_hours)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        [
+          finalServiceName, 
+          sub_item_name, 
+          description || '', 
+          finalImageUrl, 
+          price || 0, 
+          unit || '', 
+          min_quantity || 0,
+          available_time || null,
+          rating || null,
+          available_24_hours || 0
+        ]
+      );
+    }
     res.json({ id: r.insertId });
   } catch (e) {
     console.error('serviceItems.create error', e);
