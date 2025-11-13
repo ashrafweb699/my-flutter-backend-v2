@@ -248,6 +248,8 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/call-notifications', require('./routes/callNotifications'));
 // SMS Gateway routes (OTP outbox, payment SMS ingest)
 app.use('/api/gateway', require('./routes/gateway'));
+// Payments (manual TID submission & status)
+app.use('/api/payments', require('./routes/payments'));
 // Proxy routes (for Cloudinary document downloads)
 app.use('/api/proxy', require('./routes/proxy'));
 // Agora token generation routes
@@ -766,5 +768,13 @@ server.listen(PORT, '0.0.0.0', async () => {
     
   } catch (error) {
     console.error('Error setting up database tables:', error);
+  }
+
+  // Start background jobs
+  try {
+    const paymentRecon = require('./jobs/paymentReconciliation');
+    paymentRecon.start(60000); // run every 60s
+  } catch (e) {
+    console.error('Failed to start payment reconciliation worker:', e.message);
   }
 });
