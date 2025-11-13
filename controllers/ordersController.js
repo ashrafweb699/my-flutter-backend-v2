@@ -77,6 +77,13 @@ exports.create = (io) => async (req, res) => {
       console.error('❌ FCM notification failed:', fcmError);
       // Don't fail the order if FCM fails
     }
+    // Send FCM notification to delivery boys
+    try {
+      const { sendOrderNotificationToDeliveryBoys } = require('../services/fcmService');
+      await sendOrderNotificationToDeliveryBoys(order);
+    } catch (fcmError) {
+      console.error('❌ Delivery FCM notification failed:', fcmError.message || fcmError);
+    }
     
     console.log('✅ Order created successfully:', order.id);
     res.json({ id: r.insertId, order });

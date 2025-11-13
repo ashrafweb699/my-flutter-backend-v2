@@ -15,6 +15,64 @@ if (!admin.apps.length) {
     console.error('❌ Firebase Admin initialization failed:', error);
     console.error('Make sure firebase-service-account.json exists in backend directory');
   }
+
+/**
+ * Send order notification to all delivery boys
+ */
+async function sendOrderNotificationToDeliveryBoys(order) {
+  try {
+    const title = 'New Order to Deliver';
+    const message = `Order #${order.id} - Rs ${order.totalAmount} ready for assignment`;
+
+    // Fetch delivery boys with valid tokens
+    const [rows] = await pool.query(`
+      SELECT id, name, fcm_token FROM users
+      WHERE user_type = 'd_boy' AND fcm_token IS NOT NULL AND fcm_token != ''
+    `);
+
+    if (!rows.length) {
+      console.log('⚠️ No delivery boys with FCM token');
+      return { success: false, message: 'No delivery boy tokens' };
+    }
+
+    const data = {
+      type: 'new_order',
+      route: 'delivery_orders',
+      entity: 'order',
+      order_id: order.id?.toString?.() || String(order.id),
+      orderAmount: (order.totalAmount ?? order.total_amount ?? '').toString(),
+      customerName: order.customer_name || order.userName || '',
+    };
+
+    let sent = 0, failed = 0;
+    for (const u of rows) {
+      const token = u.fcm_token;
+      if (!token || token.length < 50) continue;
+      try {
+        const messageObj = {
+          notification: { title, body: message },
+          data: Object.fromEntries(Object.entries(data).map(([k,v]) => [k, String(v)])),
+          token,
+          android: {
+            priority: 'high',
+            notification: { channelId: 'cab_booking_channel_v4', sound: 'default' },
+          },
+        };
+        await admin.messaging().send(messageObj);
+        sent++;
+      } catch (err) {
+        console.error('❌ FCM to delivery boy failed:', err.message);
+        failed++;
+      }
+    }
+
+    console.log(`🚚 Delivery FCM done. sent=${sent} failed=${failed}`);
+    return { success: sent > 0, sent, failed };
+  } catch (e) {
+    console.error('sendOrderNotificationToDeliveryBoys error', e.message);
+    return { success: false, error: e.message };
+  }
+}
 }
 
 /**
@@ -177,5 +235,6 @@ async function sendOrderNotificationToAdmin(order) {
 module.exports = {
   sendAdminNotification,
   sendOrderNotificationToAdmin,
+  sendOrderNotificationToDeliveryBoys,
   storeNotificationHistory,
 };
