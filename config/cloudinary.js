@@ -14,7 +14,8 @@ const servicesStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'gwadar-services',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    // Include gif so admin can upload animated/service GIFs
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif'],
     transformation: [{ width: 800, height: 800, crop: 'limit' }]
   },
 });
