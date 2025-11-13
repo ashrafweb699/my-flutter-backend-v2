@@ -15,6 +15,7 @@ if (!admin.apps.length) {
     console.error('❌ Firebase Admin initialization failed:', error);
     console.error('Make sure firebase-service-account.json exists in backend directory');
   }
+}
 
 /**
  * Send order notification to all delivery boys
