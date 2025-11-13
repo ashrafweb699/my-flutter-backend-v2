@@ -24,6 +24,8 @@ const createServiceUnitsTable = require('./db/migrations/create_service_units_ta
 const createOrderStatisticsTable = require('./db/migrations/create_order_statistics_table');
 const createJourneyRecordsTable = require('./db/migrations/create_journey_records_table');
 const createSMSGatewayTables = require('./db/migrations/create_sms_gateway_tables');
+const createUserWalletsTable = require('./db/migrations/create_user_wallets_table');
+const createUserWalletTransactionsTable = require('./db/migrations/create_user_wallet_transactions_table');
 
 // Load environment variables
 dotenv.config();
@@ -199,6 +201,12 @@ async function runMigrations() {
       await createSMSGatewayTables();
       console.log('SMS Gateway tables check/creation completed');
     }
+    if (typeof createUserWalletsTable === 'function') {
+      await createUserWalletsTable();
+    }
+    if (typeof createUserWalletTransactionsTable === 'function') {
+      await createUserWalletTransactionsTable();
+    }
     
     console.log('All migrations completed successfully');
   } catch (error) {
@@ -250,6 +258,8 @@ app.use('/api/call-notifications', require('./routes/callNotifications'));
 app.use('/api/gateway', require('./routes/gateway'));
 // Payments (manual TID submission & status)
 app.use('/api/payments', require('./routes/payments'));
+// Wallet routes
+app.use('/api/wallet', require('./routes/wallet'));
 // Proxy routes (for Cloudinary document downloads)
 app.use('/api/proxy', require('./routes/proxy'));
 // Agora token generation routes
