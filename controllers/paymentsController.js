@@ -33,6 +33,12 @@ exports.submitManualTID = async (req, res) => {
         `UPDATE manual_payment_submissions SET status = 'matched', matched_sms_id = ? WHERE id = ?`,
         [sms[0].id, result.insertId]
       );
+      try {
+        const { creditUser } = require('../services/walletService');
+        if (amount) {
+          await creditUser(user_id, Number(amount), { reference: `TID:${tid.trim()}`, submissionId: result.insertId });
+        }
+      } catch (ce) { console.error('wallet credit on submit error', ce.message); }
       return res.status(201).json({ success: true, status: 'matched', submission_id: result.insertId });
     }
 
@@ -47,7 +53,7 @@ exports.checkTIDStatus = async (req, res) => {
   try {
     const { tid } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, status, matched_sms_id, amount_claimed, created_at FROM manual_payment_submissions WHERE tid_submitted = ? ORDER BY id DESC LIMIT 1`,
+      `SELECT id, user_id, status, matched_sms_id, amount_claimed, created_at FROM manual_payment_submissions WHERE tid_submitted = ? ORDER BY id DESC LIMIT 1`,
       [tid]
     );
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
@@ -68,6 +74,12 @@ exports.checkTIDStatus = async (req, res) => {
         );
         current.status = 'matched';
         current.matched_sms_id = exact[0].id;
+        try {
+          const { creditUser } = require('../services/walletService');
+          if (current.amount_claimed) {
+            await creditUser(current.user_id, Number(current.amount_claimed), { reference: `TID:${tid.trim()}`, submissionId: current.id });
+          }
+        } catch (ce) { console.error('wallet credit on status-exact error', ce.message); }
         return res.json({ id: current.id, status: current.status, matched_sms_id: current.matched_sms_id });
       }
 
@@ -83,6 +95,12 @@ exports.checkTIDStatus = async (req, res) => {
         );
         current.status = 'matched';
         current.matched_sms_id = byText[0].id;
+        try {
+          const { creditUser } = require('../services/walletService');
+          if (current.amount_claimed) {
+            await creditUser(current.user_id, Number(current.amount_claimed), { reference: `TID:${tid.trim()}`, submissionId: current.id });
+          }
+        } catch (ce) { console.error('wallet credit on status-text error', ce.message); }
         return res.json({ id: current.id, status: current.status, matched_sms_id: current.matched_sms_id });
       }
 
@@ -103,6 +121,12 @@ exports.checkTIDStatus = async (req, res) => {
           );
           current.status = 'matched';
           current.matched_sms_id = range[0].id;
+          try {
+            const { creditUser } = require('../services/walletService');
+            if (current.amount_claimed) {
+              await creditUser(current.user_id, Number(current.amount_claimed), { reference: `TID:${tid.trim()}`, submissionId: current.id });
+            }
+          } catch (ce) { console.error('wallet credit on status-amount error', ce.message); }
         }
       }
     }
