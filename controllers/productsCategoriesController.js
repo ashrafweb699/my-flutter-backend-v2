@@ -41,7 +41,9 @@ exports.createProductCategory = async (req, res) => {
       return res.status(400).json(formatErrorResponse(errors));
     }
     
-    const { name, image_url } = req.body;
+    let { name, image_url } = req.body;
+    // Ensure undefined is not passed to the driver
+    if (typeof image_url === 'undefined') image_url = null;
     const query = 'INSERT INTO products_categories (name, image_url) VALUES (?, ?)';
     const [result] = await db.execute(query, [name, image_url]);
     
@@ -72,7 +74,7 @@ exports.updateProductCategory = async (req, res) => {
     }
     
     const { id } = req.params;
-    const { name, image_url } = req.body;
+    let { name, image_url } = req.body;
     
     // Check if category exists
     const checkQuery = 'SELECT * FROM products_categories WHERE id = ?';
@@ -82,14 +84,17 @@ exports.updateProductCategory = async (req, res) => {
       return res.status(404).json({ error: 'Product category not found' });
     }
     
+    // Fallback to existing values if fields are not provided; convert undefined to null
+    const nameFinal = (typeof name === 'undefined') ? existingCategory[0].name : name;
+    const imageUrlFinal = (typeof image_url === 'undefined') ? existingCategory[0].image_url : image_url;
     const updateQuery = 'UPDATE products_categories SET name = ?, image_url = ? WHERE id = ?';
-    const [result] = await db.execute(updateQuery, [name, image_url, id]);
+    const [result] = await db.execute(updateQuery, [nameFinal, imageUrlFinal, id]);
     
     if (result.affectedRows === 1) {
       const updatedCategory = {
         id: parseInt(id),
-        name,
-        image_url,
+        name: nameFinal,
+        image_url: imageUrlFinal,
         updated_at: new Date().toISOString()
       };
       
