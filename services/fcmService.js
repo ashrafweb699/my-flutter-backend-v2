@@ -73,7 +73,6 @@ async function sendOrderNotificationToDeliveryBoys(order) {
     return { success: false, error: e.message };
   }
 }
-}
 
 /**
  * Send FCM notification to admin users
