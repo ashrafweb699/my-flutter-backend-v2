@@ -47,11 +47,67 @@ exports.checkTIDStatus = async (req, res) => {
   try {
     const { tid } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, status, matched_sms_id FROM manual_payment_submissions WHERE tid_submitted = ? ORDER BY id DESC LIMIT 1`,
+      `SELECT id, status, matched_sms_id, amount_claimed, created_at FROM manual_payment_submissions WHERE tid_submitted = ? ORDER BY id DESC LIMIT 1`,
       [tid]
     );
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
-    res.json(rows[0]);
+
+    let current = rows[0];
+
+    // If not matched yet, try instant reconciliation
+    if (current.status !== 'matched') {
+      // 1) Exact match on parsed_tid
+      const [exact] = await pool.query(
+        `SELECT id FROM incoming_payment_sms WHERE parsed_tid = ? ORDER BY id DESC LIMIT 1`,
+        [tid.trim()]
+      );
+      if (exact.length > 0) {
+        await pool.query(
+          `UPDATE manual_payment_submissions SET status = 'matched', matched_sms_id = ?, updated_at = NOW() WHERE id = ?`,
+          [exact[0].id, current.id]
+        );
+        current.status = 'matched';
+        current.matched_sms_id = exact[0].id;
+        return res.json({ id: current.id, status: current.status, matched_sms_id: current.matched_sms_id });
+      }
+
+      // 2) Fuzzy: raw_text contains TID
+      const [byText] = await pool.query(
+        `SELECT id FROM incoming_payment_sms WHERE raw_text LIKE ? ORDER BY id DESC LIMIT 1`,
+        ['%' + tid.trim() + '%']
+      );
+      if (byText.length > 0) {
+        await pool.query(
+          `UPDATE manual_payment_submissions SET status = 'matched', matched_sms_id = ?, updated_at = NOW() WHERE id = ?`,
+          [byText[0].id, current.id]
+        );
+        current.status = 'matched';
+        current.matched_sms_id = byText[0].id;
+        return res.json({ id: current.id, status: current.status, matched_sms_id: current.matched_sms_id });
+      }
+
+      // 3) Amount + time-window within last 6 hours
+      if (current.amount_claimed != null) {
+        const [range] = await pool.query(
+          `SELECT id FROM incoming_payment_sms 
+             WHERE amount = ? 
+               AND tx_time IS NOT NULL
+               AND tx_time BETWEEN (NOW() - INTERVAL 6 HOUR) AND NOW()
+             ORDER BY id DESC LIMIT 1`,
+          [current.amount_claimed]
+        );
+        if (range.length > 0) {
+          await pool.query(
+            `UPDATE manual_payment_submissions SET status = 'matched', matched_sms_id = ?, updated_at = NOW() WHERE id = ?`,
+            [range[0].id, current.id]
+          );
+          current.status = 'matched';
+          current.matched_sms_id = range[0].id;
+        }
+      }
+    }
+
+    res.json({ id: current.id, status: current.status, matched_sms_id: current.matched_sms_id });
   } catch (e) {
     console.error('checkTIDStatus error', e);
     res.status(500).json({ message: 'Server error' });
