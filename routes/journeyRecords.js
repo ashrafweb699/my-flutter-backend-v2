@@ -11,4 +11,7 @@ router.get('/manager/:bus_manager_id', journeyRecordsController.getJourneyRecord
 // Get journey statistics
 router.get('/manager/:bus_manager_id/stats', journeyRecordsController.getJourneyStats);
 
+// Get statistics (alternative route format)
+router.get('/statistics/:bus_manager_id', journeyRecordsController.getBusManagerStatistics);
+
 module.exports = router;

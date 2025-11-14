@@ -217,8 +217,43 @@ exports.getJourneyStats = async (req, res) => {
   }
 };
 
+// Get bus manager statistics (formatted for mobile app)
+exports.getBusManagerStatistics = async (req, res) => {
+  try {
+    const { bus_manager_id } = req.params;
+
+    const query = `
+      SELECT 
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as total_trips,
+        SUM(CASE WHEN status = 'completed' THEN booked_seats ELSE 0 END) as total_passengers,
+        COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled_trips,
+        SUM(CASE WHEN status = 'completed' THEN total_revenue ELSE 0 END) as total_revenue
+      FROM journey_records 
+      WHERE bus_manager_id = ?
+    `;
+
+    const [stats] = await pool.query(query, [bus_manager_id]);
+
+    res.json({
+      total_trips: stats[0].total_trips || 0,
+      total_passengers: stats[0].total_passengers || 0,
+      cancelled_trips: stats[0].cancelled_trips || 0,
+      total_revenue: stats[0].total_revenue || 0
+    });
+
+  } catch (error) {
+    console.error('❌ Get bus manager statistics error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch statistics',
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   completeJourney: exports.completeJourney,
   getJourneyRecords: exports.getJourneyRecords,
-  getJourneyStats: exports.getJourneyStats
+  getJourneyStats: exports.getJourneyStats,
+  getBusManagerStatistics: exports.getBusManagerStatistics
 };
