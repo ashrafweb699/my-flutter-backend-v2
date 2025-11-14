@@ -225,20 +225,22 @@ exports.getBusManagerStatistics = async (req, res) => {
     const query = `
       SELECT 
         COUNT(CASE WHEN status = 'completed' THEN 1 END) as total_trips,
-        SUM(CASE WHEN status = 'completed' THEN booked_seats ELSE 0 END) as total_passengers,
+        COALESCE(SUM(CASE WHEN status = 'completed' THEN booked_seats ELSE 0 END), 0) as total_passengers,
         COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled_trips,
-        SUM(CASE WHEN status = 'completed' THEN total_revenue ELSE 0 END) as total_revenue
+        COALESCE(SUM(CASE WHEN status = 'completed' THEN total_revenue ELSE 0 END), 0) as total_revenue
       FROM journey_records 
       WHERE bus_manager_id = ?
     `;
 
     const [stats] = await pool.query(query, [bus_manager_id]);
 
+    console.log('📊 Statistics for manager', bus_manager_id, ':', stats[0]);
+
     res.json({
-      total_trips: stats[0].total_trips || 0,
-      total_passengers: stats[0].total_passengers || 0,
-      cancelled_trips: stats[0].cancelled_trips || 0,
-      total_revenue: stats[0].total_revenue || 0
+      total_trips: parseInt(stats[0].total_trips) || 0,
+      total_passengers: parseInt(stats[0].total_passengers) || 0,
+      cancelled_trips: parseInt(stats[0].cancelled_trips) || 0,
+      total_revenue: parseFloat(stats[0].total_revenue) || 0
     });
 
   } catch (error) {
