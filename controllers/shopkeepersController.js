@@ -1,10 +1,10 @@
 const { pool } = require('../config/db');
 
-// Get all shopkeepers
+// Get all shopkeeper
 exports.getAllShopkeepers = async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT * FROM shopkeepers
+      SELECT * FROM shopkeeper
       ORDER BY created_at DESC
     `);
     
@@ -51,7 +51,7 @@ exports.getAllShopkeepers = async (req, res) => {
 exports.getShopkeeperById = async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT * FROM shopkeepers WHERE id = ?
+      SELECT * FROM shopkeeper WHERE id = ?
     `, [req.params.id]);
     
     if (rows.length === 0) {
@@ -138,7 +138,7 @@ exports.registerShopkeeper = async (req, res) => {
 
     // Create shopkeeper record with category_id (int)
     const [shopResult] = await pool.query(`
-      INSERT INTO shopkeepers (
+      INSERT INTO shopkeeper (
         user_id, name, email, phone, shop_name, shop_address, 
         category, approval_status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
@@ -210,7 +210,7 @@ exports.createShopkeeper = async (req, res) => {
     }
     
     const [result] = await pool.query(`
-      INSERT INTO shopkeepers (
+      INSERT INTO shopkeeper (
         user_id, name, email, phone, shop_name, shop_address, 
         category, profile_image, shop_image, cnic_front_image, 
         cnic_back_image, address, approval_status
@@ -249,7 +249,7 @@ exports.updateShopkeeper = async (req, res) => {
     } = req.body;
     
     await pool.query(`
-      UPDATE shopkeepers 
+      UPDATE shopkeeper 
       SET name = ?, email = ?, phone = ?, shop_name = ?, shop_address = ?,
           category = ?, profile_image = ?, shop_image = ?, 
           cnic_front_image = ?, cnic_back_image = ?, address = ?,
@@ -279,7 +279,7 @@ exports.updateShopkeeperApproval = async (req, res) => {
     }
     
     // Get shopkeeper details
-    const [rows] = await pool.query('SELECT * FROM shopkeepers WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT * FROM shopkeeper WHERE id = ?', [id]);
     if (!rows.length) {
       return res.status(404).json({ error: 'Shopkeeper not found' });
     }
@@ -309,7 +309,7 @@ exports.updateShopkeeperApproval = async (req, res) => {
       }
       
       // Delete shopkeeper record
-      await pool.query('DELETE FROM shopkeepers WHERE id = ?', [id]);
+      await pool.query('DELETE FROM shopkeeper WHERE id = ?', [id]);
       
       // Delete user record
       if (shopkeeper.user_id) {
@@ -325,7 +325,7 @@ exports.updateShopkeeperApproval = async (req, res) => {
     }
     
     await pool.query(`
-      UPDATE shopkeepers 
+      UPDATE shopkeeper
       SET approval_status = ?, updated_at = NOW()
       WHERE id = ?
     `, [approval_status, id]);
@@ -343,7 +343,7 @@ exports.updateShopkeeperApproval = async (req, res) => {
 // Delete a shopkeeper
 exports.deleteShopkeeper = async (req, res) => {
   try {
-    await pool.query('DELETE FROM shopkeepers WHERE id = ?', [req.params.id]);
+    await pool.query('DELETE FROM shopkeeper WHERE id = ?', [req.params.id]);
     res.json({ message: 'Shopkeeper deleted successfully' });
   } catch (error) {
     console.error('Error deleting shopkeeper:', error);
