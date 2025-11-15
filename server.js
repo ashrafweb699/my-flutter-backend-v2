@@ -268,6 +268,8 @@ app.use('/api/agora', require('./routes/agora'));
 app.use('/api/service', require('./routes/serviceUnits'));
 // Journey Records routes
 app.use('/api/journey-records', require('./routes/journeyRecords'));
+// Delivery Records routes
+app.use('/api/delivery-records', require('./routes/deliveryRecords'));
 
 // Dedicated upload endpoint for images
 app.post('/upload', uploadService.single('image'), async (req, res) => {
