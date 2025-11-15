@@ -53,8 +53,9 @@ exports.getDeliveryRecords = async (req, res) => {
 exports.getDeliveryBoyStatistics = async (req, res) => {
   try {
     const { delivery_boy_id } = req.params;
+    const { month, year } = req.query;
 
-    const query = `
+    let query = `
       SELECT 
         COUNT(CASE WHEN status = 'delivered' THEN 1 END) as total_deliveries,
         COUNT(CASE WHEN status = 'delivered' THEN 1 END) as completed_deliveries,
@@ -65,7 +66,16 @@ exports.getDeliveryBoyStatistics = async (req, res) => {
       WHERE driver_id = ?
     `;
 
-    const [stats] = await pool.query(query, [delivery_boy_id]);
+    const params = [delivery_boy_id];
+
+    // Add month/year filter if provided
+    if (month && year) {
+      query += ` AND MONTH(delivered_at) = ? AND YEAR(delivered_at) = ?`;
+      params.push(parseInt(month), parseInt(year));
+      console.log(`📅 Filtering by month: ${month}/${year}`);
+    }
+
+    const [stats] = await pool.query(query, params);
 
     console.log('📊 Delivery statistics for delivery boy', delivery_boy_id, ':', stats[0]);
 

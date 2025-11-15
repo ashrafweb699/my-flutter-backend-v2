@@ -128,12 +128,13 @@ exports.listByUser = async (req, res) => {
 exports.updateStatus = (io) => async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, delivery_message, estimated_delivery_time, order_type } = req.body;
+    const { status, delivery_message, estimated_delivery_time, order_type, driver_id } = req.body;
     if (!id || !status) return res.status(400).json({ message: 'id and status required' });
 
     console.log(`📦 Updating order ${id} status to: ${status}`);
     console.log(`⏱️ Estimated delivery time: ${estimated_delivery_time}`);
     console.log(`📋 Order type: ${order_type}`);
+    console.log(`🚗 Driver ID: ${driver_id}`);
 
     // Map status to timestamp fields
     let tsField = null;
@@ -143,6 +144,13 @@ exports.updateStatus = (io) => async (req, res) => {
 
     const updates = [`status = ?`, `delivery_notes = COALESCE(?, delivery_notes)`];
     const params = [status, delivery_message || null];
+    
+    // Set driver_id when order is marked as delivered
+    if (driver_id && status === 'delivered') {
+      updates.push(`driver_id = ?`);
+      params.push(driver_id);
+      console.log(`✅ Setting driver_id ${driver_id} for delivered order ${id}`);
+    }
     
     if (estimated_delivery_time) {
       // Convert estimated time to DATETIME
