@@ -154,14 +154,33 @@ exports.updateStatus = (io) => async (req, res) => {
       
       // If delivery boy, also set driver_id for backward compatibility
       if (delivered_by_user_type === 'delivery_boy' && driver_id) {
-        updates.push(`driver_id = ?`);
-        params.push(driver_id);
+        // Verify driver exists before setting foreign key
+        try {
+          const [driverCheck] = await pool.query('SELECT id FROM users WHERE id = ?', [driver_id]);
+          if (driverCheck.length > 0) {
+            updates.push(`driver_id = ?`);
+            params.push(driver_id);
+          } else {
+            console.warn(`⚠️ Driver ID ${driver_id} does not exist, skipping driver_id assignment`);
+          }
+        } catch (err) {
+          console.error(`⚠️ Error checking driver existence: ${err.message}`);
+        }
       }
     } else if (driver_id && status === 'delivered') {
-      // Fallback: legacy support
-      updates.push(`driver_id = ?`);
-      params.push(driver_id);
-      console.log(`✅ Setting driver_id ${driver_id} for delivered order ${id} (legacy)`);
+      // Fallback: legacy support - verify driver exists
+      try {
+        const [driverCheck] = await pool.query('SELECT id FROM users WHERE id = ?', [driver_id]);
+        if (driverCheck.length > 0) {
+          updates.push(`driver_id = ?`);
+          params.push(driver_id);
+          console.log(`✅ Setting driver_id ${driver_id} for delivered order ${id} (legacy)`);
+        } else {
+          console.warn(`⚠️ Driver ID ${driver_id} does not exist, skipping driver_id assignment`);
+        }
+      } catch (err) {
+        console.error(`⚠️ Error checking driver existence: ${err.message}`);
+      }
     }
     
     if (estimated_delivery_time) {
