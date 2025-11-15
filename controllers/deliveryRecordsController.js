@@ -7,6 +7,7 @@ exports.getDeliveryRecords = async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
 
     // Query orders table directly - no separate delivery_records table needed
+    // Check both driver_id (legacy) and delivered_by_user_id (new) for backward compatibility
     const [records] = await pool.query(
       `SELECT 
         id as order_id,
@@ -19,16 +20,16 @@ exports.getDeliveryRecords = async (req, res) => {
         items,
         timestamp as order_date
       FROM orders 
-      WHERE driver_id = ? AND status = 'delivered'
+      WHERE (driver_id = ? OR (delivered_by_user_id = ? AND delivered_by_user_type = 'delivery_boy')) AND status = 'delivered'
       ORDER BY delivered_at DESC 
       LIMIT ? OFFSET ?`,
-      [delivery_boy_id, parseInt(limit), parseInt(offset)]
+      [delivery_boy_id, delivery_boy_id, parseInt(limit), parseInt(offset)]
     );
 
     // Get total count
     const [countResult] = await pool.query(
-      'SELECT COUNT(*) as total FROM orders WHERE driver_id = ? AND status = \'delivered\'',
-      [delivery_boy_id]
+      'SELECT COUNT(*) as total FROM orders WHERE (driver_id = ? OR (delivered_by_user_id = ? AND delivered_by_user_type = \'delivery_boy\')) AND status = \'delivered\'',
+      [delivery_boy_id, delivery_boy_id]
     );
 
     res.json({
@@ -63,10 +64,10 @@ exports.getDeliveryBoyStatistics = async (req, res) => {
         COALESCE(SUM(CASE WHEN status = 'delivered' THEN totalAmount ELSE 0 END), 0) as total_amount,
         COALESCE(SUM(CASE WHEN status = 'delivered' THEN 50 ELSE 0 END), 0) as total_earnings
       FROM orders 
-      WHERE driver_id = ?
+      WHERE driver_id = ? OR (delivered_by_user_id = ? AND delivered_by_user_type = 'delivery_boy')
     `;
 
-    const params = [delivery_boy_id];
+    const params = [delivery_boy_id, delivery_boy_id];
 
     // Add month/year filter if provided
     if (month && year) {
