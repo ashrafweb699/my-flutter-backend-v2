@@ -1,4 +1,4 @@
-const pool = require('../db/db');
+const pool = require('../db/connection');
 
 // Get all shop categories
 exports.getAllCategories = async (req, res) => {
