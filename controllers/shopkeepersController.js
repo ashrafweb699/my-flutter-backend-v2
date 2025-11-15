@@ -94,6 +94,78 @@ exports.getShopkeeperById = async (req, res) => {
   }
 };
 
+// Register new shopkeeper (4-step process)
+exports.registerShopkeeper = async (req, res) => {
+  try {
+    const {
+      full_name,
+      username,
+      mobile_number,
+      shop_name,
+      shop_address,
+      password,
+      selected_service,
+      selected_product_category,
+      fcm_token
+    } = req.body;
+
+    if (!full_name || !username || !mobile_number || !shop_name || !shop_address || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    const bcrypt = require('bcryptjs');
+
+    // Check if username already exists
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [username]);
+    if (existing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username already exists'
+      });
+    }
+
+    // Hash password
+    const hashed = await bcrypt.hash(password, 10);
+
+    // Create user
+    const [userResult] = await pool.query(
+      "INSERT INTO users (name, email, password, user_type, fcm_token) VALUES (?, ?, ?, 'shopkeeper', ?)",
+      [full_name, username, hashed, fcm_token || null]
+    );
+    const userId = userResult.insertId;
+
+    // Determine category based on service/product selection
+    let category = selected_service || selected_product_category || 'General';
+
+    // Create shopkeeper record
+    const [shopResult] = await pool.query(`
+      INSERT INTO shopkeepers (
+        user_id, name, email, phone, shop_name, shop_address, 
+        category, approval_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+    `, [
+      userId, full_name, username, mobile_number, shop_name, shop_address, category
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Shopkeeper registered successfully. Awaiting approval.',
+      shopkeeper_id: shopResult.insertId,
+      user_id: userId
+    });
+  } catch (error) {
+    console.error('Error registering shopkeeper:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register shopkeeper',
+      error: error.message
+    });
+  }
+};
+
 // Create a new shopkeeper
 exports.createShopkeeper = async (req, res) => {
   try {

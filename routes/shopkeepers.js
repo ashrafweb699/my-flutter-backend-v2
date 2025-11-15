@@ -8,6 +8,9 @@ router.get('/', shopkeepersController.getAllShopkeepers);
 // GET a specific shopkeeper
 router.get('/:id', shopkeepersController.getShopkeeperById);
 
+// POST register new shopkeeper (4-step process)
+router.post('/register', shopkeepersController.registerShopkeeper);
+
 // POST create a new shopkeeper
 router.post('/', shopkeepersController.createShopkeeper);
 
