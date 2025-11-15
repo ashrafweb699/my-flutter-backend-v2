@@ -128,13 +128,14 @@ exports.listByUser = async (req, res) => {
 exports.updateStatus = (io) => async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, delivery_message, estimated_delivery_time, order_type, driver_id } = req.body;
+    const { status, delivery_message, estimated_delivery_time, order_type, driver_id, delivered_by_user_id, delivered_by_user_type } = req.body;
     if (!id || !status) return res.status(400).json({ message: 'id and status required' });
 
     console.log(`📦 Updating order ${id} status to: ${status}`);
     console.log(`⏱️ Estimated delivery time: ${estimated_delivery_time}`);
     console.log(`📋 Order type: ${order_type}`);
     console.log(`🚗 Driver ID: ${driver_id}`);
+    console.log(`👤 Delivered by user ID: ${delivered_by_user_id}, Type: ${delivered_by_user_type}`);
 
     // Map status to timestamp fields
     let tsField = null;
@@ -145,11 +146,22 @@ exports.updateStatus = (io) => async (req, res) => {
     const updates = [`status = ?`, `delivery_notes = COALESCE(?, delivery_notes)`];
     const params = [status, delivery_message || null];
     
-    // Set driver_id when order is marked as delivered
-    if (driver_id && status === 'delivered') {
+    // Track who delivered the order (admin or delivery boy)
+    if (status === 'delivered' && delivered_by_user_id && delivered_by_user_type) {
+      updates.push(`delivered_by_user_id = ?`, `delivered_by_user_type = ?`);
+      params.push(delivered_by_user_id, delivered_by_user_type);
+      console.log(`✅ Setting delivered_by_user_id ${delivered_by_user_id} (${delivered_by_user_type}) for order ${id}`);
+      
+      // If delivery boy, also set driver_id for backward compatibility
+      if (delivered_by_user_type === 'delivery_boy' && driver_id) {
+        updates.push(`driver_id = ?`);
+        params.push(driver_id);
+      }
+    } else if (driver_id && status === 'delivered') {
+      // Fallback: legacy support
       updates.push(`driver_id = ?`);
       params.push(driver_id);
-      console.log(`✅ Setting driver_id ${driver_id} for delivered order ${id}`);
+      console.log(`✅ Setting driver_id ${driver_id} for delivered order ${id} (legacy)`);
     }
     
     if (estimated_delivery_time) {

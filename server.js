@@ -23,6 +23,7 @@ const createChatTables = require('./db/migrations/create_chat_tables');
 const createServiceUnitsTable = require('./db/migrations/create_service_units_table');
 const createOrderStatisticsTable = require('./db/migrations/create_order_statistics_table');
 const createJourneyRecordsTable = require('./db/migrations/create_journey_records_table');
+const addDeliveryUserTracking = require('./db/migrations/add_delivery_user_tracking');
 const createSMSGatewayTables = require('./db/migrations/create_sms_gateway_tables');
 const createUserWalletsTable = require('./db/migrations/create_user_wallets_table');
 const createUserWalletTransactionsTable = require('./db/migrations/create_user_wallet_transactions_table');
@@ -196,6 +197,10 @@ async function runMigrations() {
     if (typeof createJourneyRecordsTable === 'function') {
       await createJourneyRecordsTable.up();
       console.log('Journey records table check/creation completed');
+    }
+    if (typeof addDeliveryUserTracking === 'function') {
+      await addDeliveryUserTracking();
+      console.log('Delivery user tracking columns check/creation completed');
     }
     if (typeof createSMSGatewayTables === 'function') {
       await createSMSGatewayTables();
