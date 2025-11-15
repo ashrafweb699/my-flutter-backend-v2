@@ -22,9 +22,10 @@ exports.create = (io) => async (req, res) => {
     const orderLatitude = typeof latitude !== 'undefined' ? latitude : lat;
     const orderLongitude = typeof longitude !== 'undefined' ? longitude : lng;
 
+    const deliveryCharge = 100.00; // Fixed delivery charge
     const [r] = await pool.query(
-      `INSERT INTO orders (userId, userName, items, totalAmount, totalItems, status, customer_name, customer_phone, delivery_address, latitude, longitude) VALUES (?,?,?,?,?, 'pending', ?, ?, ?, ?, ?)`,
-      [String(userId), userName || customerName || null, JSON.stringify(items), totalAmount, totalItems, customerName, customerPhone, deliveryAddress, orderLatitude ?? null, orderLongitude ?? null]
+      `INSERT INTO orders (userId, userName, items, totalAmount, totalItems, status, customer_name, customer_phone, delivery_address, latitude, longitude, delivery_charge) VALUES (?,?,?,?,?, 'pending', ?, ?, ?, ?, ?, ?)`,
+      [String(userId), userName || customerName || null, JSON.stringify(items), totalAmount, totalItems, customerName, customerPhone, deliveryAddress, orderLatitude ?? null, orderLongitude ?? null, deliveryCharge]
     );
     
     const [rows] = await pool.query(`SELECT * FROM orders WHERE id=?`, [r.insertId]);
@@ -148,9 +149,10 @@ exports.updateStatus = (io) => async (req, res) => {
     
     // Track who delivered the order (admin or delivery boy)
     if (status === 'delivered' && delivered_by_user_id && delivered_by_user_type) {
-      updates.push(`delivered_by_user_id = ?`, `delivered_by_user_type = ?`);
+      updates.push(`delivered_by_user_id = ?`, `delivered_by_user_type = ?`, `delivery_boy_earning = 100.00`, `delivery_charge_paid = TRUE`);
       params.push(delivered_by_user_id, delivered_by_user_type);
       console.log(`✅ Setting delivered_by_user_id ${delivered_by_user_id} (${delivered_by_user_type}) for order ${id}`);
+      console.log(`💰 Delivery boy earning: Rs 100.00`);
       
       // If delivery boy, also set driver_id for backward compatibility
       if (delivered_by_user_type === 'delivery_boy' && driver_id) {

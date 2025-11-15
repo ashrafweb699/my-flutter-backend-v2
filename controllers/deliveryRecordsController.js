@@ -62,9 +62,9 @@ exports.getDeliveryBoyStatistics = async (req, res) => {
         COUNT(CASE WHEN status = 'delivered' THEN 1 END) as completed_deliveries,
         COUNT(CASE WHEN status = 'canceled' THEN 1 END) as cancelled_deliveries,
         COALESCE(SUM(CASE WHEN status = 'delivered' THEN totalAmount ELSE 0 END), 0) as total_amount,
-        COALESCE(SUM(CASE WHEN status = 'delivered' THEN 50 ELSE 0 END), 0) as total_earnings
+        COALESCE(SUM(CASE WHEN status = 'delivered' THEN COALESCE(delivery_boy_earning, 100.00) ELSE 0 END), 0) as total_earnings
       FROM orders 
-      WHERE driver_id = ? OR (delivered_by_user_id = ? AND delivered_by_user_type = 'delivery_boy')
+      WHERE (driver_id = ? OR (delivered_by_user_id = ? AND delivered_by_user_type = 'delivery_boy')) AND status = 'delivered'
     `;
 
     const params = [delivery_boy_id, delivery_boy_id];
