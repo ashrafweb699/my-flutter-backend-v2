@@ -265,8 +265,6 @@ app.use('/api/gateway', require('./routes/gateway'));
 app.use('/api/payments', require('./routes/payments'));
 // Wallet routes
 app.use('/api/wallet', require('./routes/wallet'));
-// Shop Categories routes
-app.use('/api/shop-categories', require('./routes/shopCategories'));
 // Proxy routes (for Cloudinary document downloads)
 app.use('/api/proxy', require('./routes/proxy'));
 // Agora token generation routes
