@@ -104,12 +104,11 @@ exports.registerShopkeeper = async (req, res) => {
       shop_name,
       shop_address,
       password,
-      selected_service,
-      selected_product_category,
+      category_id,
       fcm_token
     } = req.body;
 
-    if (!full_name || !username || !mobile_number || !shop_name || !shop_address || !password) {
+    if (!full_name || !username || !mobile_number || !shop_name || !shop_address || !password || !category_id) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -137,17 +136,14 @@ exports.registerShopkeeper = async (req, res) => {
     );
     const userId = userResult.insertId;
 
-    // Determine category based on service/product selection
-    let category = selected_service || selected_product_category || 'General';
-
-    // Create shopkeeper record
+    // Create shopkeeper record with category_id (int)
     const [shopResult] = await pool.query(`
       INSERT INTO shopkeepers (
         user_id, name, email, phone, shop_name, shop_address, 
         category, approval_status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
     `, [
-      userId, full_name, username, mobile_number, shop_name, shop_address, category
+      userId, full_name, username, mobile_number, shop_name, shop_address, category_id
     ]);
 
     res.status(201).json({
